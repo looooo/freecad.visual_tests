@@ -53,16 +53,18 @@ Jeder Testordner enthält eine `metafile.yaml`, die Modell, Ansichten und Vergle
 
 | Feld | Beschreibung |
 |------|--------------|
-| `version` | Konfigurationsversion (z. B. `1`) |
+| `version` | Konfigurationsversion (z. B. `1`); für zukünftige Kompatibilität – bei Änderung des Metafile-Formats wird die Version erhöht. |
 | `model` | Dateiname der FreeCAD-Datei (`.FCStd`/`.fcstd`) im gleichen Ordner |
 | `description` | Kurzbeschreibung (optional) |
 
 ### default
 
+Alle Felder sind optional; sinnvolle Defaults erlauben eine schlanke Metafile.
+
 | Feld | Bedeutung | Standard |
 |------|------------|----------|
 | `image_dir` | Ordner für Referenzbilder | `references` |
-| `image_format` | Format (derzeit nur PNG genutzt) | `png` |
+| `image_format` | Bildformat (derzeit nur PNG unterstützt) | `png` |
 | `threshold` | Mindest-SSIM (0…1) pro View | `0.98` |
 
 ### views
@@ -159,6 +161,15 @@ Ein einziger Parameter **reference_mode** steuert das Verhalten:
 
 Beispiel: `run_metafile_test(session, BASE_DIR, reference_mode="create_missing")`.
 
+## Wann was verwenden?
+
+| Ziel | Vorgehen |
+|------|----------|
+| Normale Tests (ein Modell, 3D/TechDraw/Sketcher per Metafile) | `run_metafile_test(session, BASE_DIR, reference_mode="compare")` (oder `"create_missing"` beim ersten Anlegen von Referenzen). |
+| Referenzen einmalig anlegen | `reference_mode="create_missing"`. |
+| Referenzen nach FreeCAD-/Umgebungswechsel neu schreiben | `reference_mode="update"`. |
+| Eigenes Dokument- oder Modus-Handling (selten) | `VisualTestCase(session, BASE_DIR)` bauen, Dokument selbst öffnen/schließen, `case.run_views_only(reference_mode=...)` aufrufen. |
+
 ## Beispiele (projekt_1–5)
 
 | Projekt | Inhalt |
@@ -189,9 +200,18 @@ def test_mein_projekt(freecad_vis_session):
 
 **Sketcher (Edit-Modus):** In der Metafile bei der betreffenden View `sketch_edit: true` (optional `sketch_name`) setzen – das Framework öffnet das Dokument, setzt den Sketch in den Edit-Modus, macht den Screenshot und beendet den Edit-Modus. Kein eigener Testcode nötig (siehe projekt_3).
 
+**Threshold lockerer setzen (z. B. lokal):** `run_metafile_test(session, BASE_DIR, default_threshold=0.95)` – überschreibt den Metafile-Default für diesen Lauf.
+
 **Eigener Ablauf (selten):** Wenn du Dokument oder Modus selbst steuerst: `VisualTestCase(session, BASE_DIR)` bauen, Dokument öffnen, dann `case.run_views_only(reference_mode=...)` aufrufen. Dokument danach selbst schließen.
 
-Die Fixture **freecad_vis_session** (in `test/conftest.py`) stellt eine gemeinsame FreeCAD-GUI-Session für alle Tests bereit.
+**Session:** Die Fixture **freecad_vis_session** (in `test/conftest.py`) stellt eine gemeinsame FreeCAD-GUI-Session für alle Tests bereit. Für Skripte außerhalb pytest: `session = VisualTestSession.start()` aufrufen, dann z. B. `run_metafile_test(session, path)`; am Ende `session.shutdown()`.
+
+## Bekannte Einschränkungen
+
+- **Plattform:** Getestet unter Linux (pixi/conda). Ohne sichtbaren Desktop (z. B. CI) ist eine virtuelle Anzeige nötig (`pixi run test-xvfb`).
+- **Eine GUI-Session pro Lauf:** Alle Tests teilen sich eine FreeCAD-GUI-Session (Fixture); Dokumente werden nacheinander geöffnet und geschlossen.
+- **Reihenfolge:** Die Reihenfolge der Tests kann bei geteilten Dokumenten oder globalen FreeCAD-Einstellungen relevant sein.
+- **Ein Modell pro Metafile:** Jede `metafile.yaml` referenziert genau eine `.FCStd`-Datei; Erweiterung auf mehrere Modelle ist nicht vorgesehen.
 
 ## Pixi-Tasks
 
@@ -205,20 +225,24 @@ Die Fixture **freecad_vis_session** (in `test/conftest.py`) stellt eine gemeinsa
 
 ## API (Kurzüberblick)
 
-- **VisualTestSession**  
-  `start()`, `open_document`, `close_document`, `set_sketch_edit_mode`, `set_active_techdraw_page`, `unset_techdraw_page`, `capture_view`, `compare_images_ssim`, `get_env_snapshot`, …
-
-- **VisualTestCase**  
-  Wird aus einer `metafile.yaml` aufgebaut. **metafile_path** kann ein Verzeichnis sein (dann wird `metafile.yaml` verwendet).  
-  `run(reference_mode="compare"|"create_missing"|"update", default_threshold=...)`  
-  `run_views_only(reference_mode=..., default_threshold=...)` – nur Views aufnehmen und vergleichen (Dokument muss bereits geöffnet sein).
+### Öffentliche API (für normale Tests)
 
 - **run_metafile_test(session, metafile_path, reference_mode="compare", default_threshold=None)**  
-  Bequem-Funktion: **metafile_path** kann Ordner oder Dateipfad sein. Baut den VisualTestCase, öffnet das Modell, führt `run()` aus.
+  Bequem-Funktion für fast alle Fälle. **metafile_path** kann Ordner (dann `metafile.yaml`) oder Dateipfad sein. Öffnet Modell, führt alle Views aus, vergleicht mit Referenzen.
 
-- **helper** (freecad.visual_tests.helper)  
-  Sketcher: `set_sketch_edit_mode(enter, sketch_name=None)`.  
-  TechDraw: `set_active_techdraw_page(page_name=None)`, `unset_techdraw_page()`, `process_events_and_delay()`, `get_techdraw_page_view()`, `grab_mdi_active_subwindow(output_path, width, height)`.
+- **VisualTestCase(session, metafile_path)**  
+  Wird aus einer `metafile.yaml` aufgebaut.  
+  `run(reference_mode=..., default_threshold=...)` – Modell öffnen, Views ausführen, Modell schließen.  
+  `run_views_only(reference_mode=..., default_threshold=...)` – nur Views (Dokument muss bereits geöffnet sein; für eigenen Ablauf).
+
+- **VisualTestSession**  
+  `start()`, `shutdown()`, `open_document`, `close_document`, `get_env_snapshot`. Wird in pytest über die Fixture **freecad_vis_session** bereitgestellt.
+
+### Erweiterte Nutzung / Helper
+
+- **helper** (freecad.visual_tests.helper) – Sketcher- und TechDraw-Steuerung, falls du den Ablauf selbst implementierst:  
+  `set_sketch_edit_mode(enter, sketch_name=None)`, `set_active_techdraw_page(page_name=None)`, `unset_techdraw_page()`, `process_events_and_delay()`, `get_techdraw_page_view()`, `grab_mdi_active_subwindow(output_path, width, height)`.  
+  Über die Session: `session.set_sketch_edit_mode`, `session.set_active_techdraw_page`, `session.unset_techdraw_page`.
 
 ## Lizenz / Autor
 
