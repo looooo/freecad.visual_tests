@@ -1,0 +1,58 @@
+version: 1
+model: "Basic_Part_Design_Tutorial_017.fcstd"
+description: "Basic Part Design Tutorial – simple view"
+
+default:
+  image_dir: "references"
+  image_format: "png"
+  threshold: 0.98
+
+views:
+  - id: "part_iso"
+    label: "Isometric part view"
+    type: "3d"
+    camera:
+      position: [150, 150, 150]
+      target: [0, 0, 0]
+      up: [0, 0, 1]
+      fov: 35.0
+      projection: "perspective"
+    display:
+      mode: "shaded"
+      background: "gradient"
+      size: [1600, 1200]
+    output:
+      filename: "part_iso.png"
+
+  - id: "part_side"
+    label: "Side orthographic view"
+    type: "3d"
+    camera:
+      position: [300, 0, 0]
+      target: [0, 0, 0]
+      up: [0, 0, 1]
+      fov: 1.0
+      projection: "orthographic"
+    display:
+      mode: "shaded"
+      background: "gradient"
+      size: [1600, 1200]
+    output:
+      filename: "part_side.png"
+
+  - id: "part_top"
+    label: "Top orthographic view"
+    type: "3d"
+    camera:
+      position: [0, 0, 300]
+      target: [0, 0, 0]
+      up: [0, 1, 0]
+      fov: 1.0
+      projection: "orthographic"
+    display:
+      mode: "shaded"
+      background: "gradient"
+      size: [1600, 1200]
+    output:
+      filename: "part_top.png"
+

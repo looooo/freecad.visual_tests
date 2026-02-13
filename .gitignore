@@ -1,0 +1,13 @@
+# Python bytecode / cache
+__pycache__/
+*.py[cod]
+
+# Pixi / environment artifacts
+*.lock
+
+# Test run artifacts (do NOT commit these)
+test/**/artifacts/
+
+# Allow reference images to be committed
+!test/**/references/
+

@@ -1,0 +1,35 @@
+version: 1
+model: "Basic_TechDraw_Tutorial.fcstd"
+description: "TechDraw example – 3D object and drawing page as separate images"
+
+default:
+  image_dir: "references"
+  image_format: "png"
+  threshold: 0.98
+
+views:
+  - id: "object_3d"
+    label: "3D object view"
+    type: "3d"
+    camera:
+      position: [200, 200, 200]
+      target: [0, 0, 0]
+      up: [0, 0, 1]
+      fov: 35.0
+      projection: "perspective"
+    display:
+      mode: "shaded"
+      background: "gradient"
+      size: [1600, 1200]
+    output:
+      filename: "object_3d.png"
+
+  - id: "techdraw_page"
+    label: "TechDraw drawing page"
+    type: "techdraw"
+    techdraw_page: null
+    camera: {}
+    display:
+      size: [1600, 1200]
+    output:
+      filename: "techdraw_page.png"

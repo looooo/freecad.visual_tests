@@ -1,0 +1,44 @@
+version: 1
+# Official FreeCAD assembly example (from FreeCAD/data/examples).
+# To use a Bagger/excavator assembly instead, place your .FCStd here and set model to its filename.
+model: "AssemblyExample.FCStd"
+description: "FreeCAD assembly example – multiple bodies assembly views"
+
+default:
+  image_dir: "references"
+  image_format: "png"
+  threshold: 0.98
+
+views:
+  - id: "asm_iso"
+    label: "Isometric assembly view"
+    type: "3d"
+    camera:
+      position: [400, 400, 400]
+      target: [0, 0, 0]
+      up: [0, 0, 1]
+      fov: 35.0
+      projection: "perspective"
+    display:
+      mode: "shaded"
+      background: "gradient"
+      size: [1600, 1200]
+    output:
+      filename: "asm_iso.png"
+
+  - id: "asm_front"
+    label: "Front orthographic assembly view"
+    type: "3d"
+    camera:
+      position: [0, -600, 0]
+      target: [0, 0, 0]
+      up: [0, 0, 1]
+      fov: 1.0
+      projection: "orthographic"
+    display:
+      mode: "shaded"
+      background: "gradient"
+      size: [1600, 1200]
+    output:
+      filename: "asm_front.png"
+

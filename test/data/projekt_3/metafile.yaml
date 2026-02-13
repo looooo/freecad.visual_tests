@@ -1,0 +1,26 @@
+version: 1
+model: "Sketcher_example_1.FCStd"
+description: "Sketcher tutorial example – pure sketch; test_projekt_3.py brings sketch into edit mode, then screenshot, then closes edit mode"
+
+default:
+  image_dir: "references"
+  image_format: "png"
+  threshold: 0.98
+
+views:
+  - id: "sketch_edit"
+    label: "Sketch in edit mode (constraints and geometry visible)"
+    type: "3d"
+    camera:
+      position: [0, 0, 300]
+      target: [0, 0, 0]
+      up: [0, 1, 0]
+      fov: 1.0
+      projection: "orthographic"
+    display:
+      mode: "shaded"
+      background: "gradient"
+      size: [1600, 1200]
+    output:
+      filename: "sketch_edit.png"
+      threshold: 0.90

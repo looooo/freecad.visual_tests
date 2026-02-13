@@ -1,0 +1,23 @@
+[workspace]
+name = "freecad-visual-tests"
+version = "0.1.0"
+description = "GUI-based visual regression test framework for FreeCAD using pytest"
+authors = ["Lorenz Lechner <ysppedflyer@gmail.com>"]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = "*"
+pytest = "*"
+Pillow = "*"
+numpy = "*"
+pyyaml = "*"
+freecad = "*"
+
+[tasks]
+test = { cmd = "pytest -s", description = "Run visual tests (SSIM); -s prints metrics" }
+test-xvfb = { cmd = "xvfb-run -s \"-screen 0 1920x1080x24\" pytest -s", description = "Run tests in virtual display" }
+clean-artifacts = { cmd = "rm -f test/**/artifacts/*", description = "Remove artifact images" }
+clean-references = { cmd = "rm -f test/**/references/*", description = "Remove reference images" }
+dev-install = { cmd = "python -m pip install -e .", description = "Editable install" }
+
