@@ -7,7 +7,21 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
+
+# "compare" = only compare, fail if reference missing
+# "create_missing" = create if missing, compare if exists
+# "update" = always write reference (create or overwrite), no comparison
+ReferenceMode = Literal["compare", "create_missing", "update"]
+
+
+def _resolve_metafile_path(path: Union[str, Path]) -> Path:
+    """If path is a directory, return path / 'metafile.yaml'; otherwise return path as file."""
+    p = Path(path).resolve()
+    if p.is_dir():
+        return p / "metafile.yaml"
+    return p
+
 
 import numpy as np
 from PIL import Image
@@ -337,9 +351,9 @@ class VisualTestSession:
 class VisualTestCase:
     """One visual test: metafile.yaml + model, views, SSIM comparison."""
 
-    def __init__(self, session: VisualTestSession, metafile_path: str) -> None:
+    def __init__(self, session: VisualTestSession, metafile_path: Union[str, Path]) -> None:
         self.session = session
-        self.metafile_path = Path(metafile_path)
+        self.metafile_path = _resolve_metafile_path(metafile_path)
         self.base_dir = self.metafile_path.parent
         self.config = self._load_yaml()
         self.views: List[ViewConfig] = self._build_views()
@@ -395,20 +409,20 @@ class VisualTestCase:
 
     def run_views_only(
         self,
-        create_missing_references: bool = False,
-        update_references: bool = False,
+        reference_mode: ReferenceMode = "compare",
         default_threshold: Optional[float] = None,
     ) -> None:
-        """Capture each view, compare to reference with SSIM, optionally create/update references. Doc must be open."""
+        """Capture each view, compare to reference with SSIM. reference_mode: compare | create_missing | update. Doc must be open."""
         import pytest
 
+        write_refs = reference_mode in ("create_missing", "update")
         if self.views:
             env = {k: v for k, v in self.session.get_env_snapshot().items() if v is not None}
             artifacts_dir = self.views[0].output_path.parent
             artifacts_dir.mkdir(parents=True, exist_ok=True)
             with open(artifacts_dir / "freecad_env.yaml", "w", encoding="utf-8") as f:
                 yaml.dump(env, f, default_flow_style=False, allow_unicode=True)
-            if create_missing_references or update_references:
+            if write_refs:
                 refs_dir = self.views[0].reference_path.parent
                 refs_dir.mkdir(parents=True, exist_ok=True)
                 with open(refs_dir / "freecad_env.yaml", "w", encoding="utf-8") as f:
@@ -427,21 +441,18 @@ class VisualTestCase:
             else:
                 self.session.capture_view(view, view.output_path)
 
+            if reference_mode == "update" or (reference_mode == "create_missing" and not view.reference_path.exists()):
+                view.reference_path.parent.mkdir(parents=True, exist_ok=True)
+                view.reference_path.write_bytes(view.output_path.read_bytes())
+                action = "updated" if reference_mode == "update" else "created"
+                print(f"  [{self.base_dir.name}] {view.id}: reference {action} (no comparison)", flush=True)
+                continue
+
             if not view.reference_path.exists():
-                if create_missing_references:
-                    view.reference_path.parent.mkdir(parents=True, exist_ok=True)
-                    view.reference_path.write_bytes(view.output_path.read_bytes())
-                    print(f"  [{self.base_dir.name}] {view.id}: reference created (no comparison)", flush=True)
-                    continue
                 pytest.fail(
                     f"Missing reference image for view '{view.id}': "
                     f"{view.reference_path}"
                 )
-
-            if update_references:
-                view.reference_path.write_bytes(view.output_path.read_bytes())
-                print(f"  [{self.base_dir.name}] {view.id}: reference updated (no comparison)", flush=True)
-                continue
 
             result = self.session.compare_images_ssim(
                 view.reference_path,
@@ -461,8 +472,7 @@ class VisualTestCase:
 
     def run(
         self,
-        create_missing_references: bool = False,
-        update_references: bool = False,
+        reference_mode: ReferenceMode = "compare",
         default_threshold: Optional[float] = None,
     ) -> None:
         import pytest  # local import to avoid hard runtime dependency in non-test code
@@ -485,8 +495,7 @@ class VisualTestCase:
                 )
 
             self.run_views_only(
-                create_missing_references=create_missing_references,
-                update_references=update_references,
+                reference_mode=reference_mode,
                 default_threshold=default_threshold,
             )
 
@@ -502,17 +511,15 @@ class VisualTestCase:
 
 def run_metafile_test(
     session: VisualTestSession,
-    metafile_path: str,
+    metafile_path: Union[str, Path],
     *,
-    create_missing_references: bool = False,
-    update_references: bool = False,
+    reference_mode: ReferenceMode = "compare",
     default_threshold: Optional[float] = None,
 ) -> None:
-    """Open model from metafile, run views, compare with SSIM. Use from pytest with freecad_vis_session."""
+    """Open model from metafile, run views, compare with SSIM. metafile_path can be a directory (then metafile.yaml is used). Use from pytest with freecad_vis_session."""
     case = VisualTestCase(session, metafile_path)
     case.run(
-        create_missing_references=create_missing_references,
-        update_references=update_references,
+        reference_mode=reference_mode,
         default_threshold=default_threshold,
     )
 

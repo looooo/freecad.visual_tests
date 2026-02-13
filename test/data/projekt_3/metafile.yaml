@@ -1,6 +1,6 @@
 version: 1
 model: "Sketcher_example_1.FCStd"
-description: "Sketcher tutorial example – pure sketch; test_projekt_3.py brings sketch into edit mode, then screenshot, then closes edit mode"
+description: "Sketcher tutorial – sketch in edit mode (handled by framework via sketch_edit: true)"
 
 default:
   image_dir: "references"
@@ -11,6 +11,7 @@ views:
   - id: "sketch_edit"
     label: "Sketch in edit mode (constraints and geometry visible)"
     type: "3d"
+    sketch_edit: true
     camera:
       position: [0, 0, 300]
       target: [0, 0, 0]

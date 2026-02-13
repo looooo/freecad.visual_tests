@@ -8,6 +8,6 @@ BASE_DIR = Path(__file__).resolve().parent
 def test_projekt_5_techdraw(freecad_vis_session):
     run_metafile_test(
         freecad_vis_session,
-        str(BASE_DIR / "metafile.yaml"),
-        create_missing_references=True,
+        BASE_DIR,
+        reference_mode="create_missing",
     )

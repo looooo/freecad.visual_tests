@@ -149,11 +149,15 @@ views:
 
 ## Referenzen erzeugen oder aktualisieren
 
-- Beim ersten Einrichten oder nach bewusster Änderung der erwarteten Ansicht:
-  - Tests mit **create_missing_references=True** aufrufen (wie in den Beispiel-Tests).
-  - Fehlende Referenzbilder werden aus den aktuellen Screenshots erzeugt; `freecad_env.yaml` in `references/` wird mitgeschrieben.
-- Bestehende Referenzen überschreiben (z. B. nach FreeCAD-Update):
-  - In `run_metafile_test(..., update_references=True)` setzen und Tests einmal laufen lassen.
+Ein einziger Parameter **reference_mode** steuert das Verhalten:
+
+| reference_mode   | Bedeutung |
+|------------------|-----------|
+| `"compare"`      | Nur vergleichen; schlägt fehl, wenn eine Referenz fehlt (Standard). |
+| `"create_missing"` | Fehlende Referenzen aus dem aktuellen Lauf anlegen, vorhandene vergleichen. |
+| `"update"`       | Alle Referenzen schreiben (anlegen oder überschreiben), kein Vergleich (z. B. nach FreeCAD-Update). |
+
+Beispiel: `run_metafile_test(session, BASE_DIR, reference_mode="create_missing")`.
 
 ## Beispiele (projekt_1–5)
 
@@ -161,13 +165,13 @@ views:
 |---------|--------|
 | **projekt_1** | Engine-Block, mehrere 3D-Ansichten (iso, front, top) |
 | **projekt_2** | Part-Design-Tutorial, 3D-Ansichten |
-| **projekt_3** | Sketcher: Dokument öffnen, Sketch in Edit-Modus, Screenshot, Edit beenden – eigener Testfluss |
+| **projekt_3** | Sketcher: `sketch_edit: true` in der Metafile, Standard-`run_metafile_test` |
 | **projekt_4** | Assembly-Beispiel, 3D-Ansichten |
 | **projekt_5** | TechDraw: 3D-Objekt + TechDraw-Seite als getrennte Bilder |
 
 ## Einen neuen Test schreiben
 
-**Standardfall (Modell öffnen → alle Views aus metafile.yaml aufnehmen und vergleichen):**
+**Standardfall:** Ordner mit `metafile.yaml` übergeben (Pfad kann Verzeichnis oder Datei sein; bei Verzeichnis wird automatisch `metafile.yaml` verwendet):
 
 ```python
 from pathlib import Path
@@ -178,34 +182,14 @@ BASE_DIR = Path(__file__).resolve().parent
 def test_mein_projekt(freecad_vis_session):
     run_metafile_test(
         freecad_vis_session,
-        str(BASE_DIR / "metafile.yaml"),
-        create_missing_references=True,  # Referenzen anlegen, wenn fehlend
+        BASE_DIR,
+        reference_mode="create_missing",  # Referenzen anlegen, wenn fehlend
     )
 ```
 
-**Sonderfall (z. B. Sketcher-Edit vor dem Screenshot):**  
-Dokument selbst öffnen, gewünschten Modus setzen (z. B. `setEdit(sketch)`), dann nur die View-Schleife ausführen:
+**Sketcher (Edit-Modus):** In der Metafile bei der betreffenden View `sketch_edit: true` (optional `sketch_name`) setzen – das Framework öffnet das Dokument, setzt den Sketch in den Edit-Modus, macht den Screenshot und beendet den Edit-Modus. Kein eigener Testcode nötig (siehe projekt_3).
 
-```python
-from freecad.visual_tests import VisualTestCase
-import FreeCAD
-import FreeCADGui
-
-def test_sketcher(freecad_vis_session):
-    case = VisualTestCase(freecad_vis_session, str(BASE_DIR / "metafile.yaml"))
-    doc = FreeCAD.openDocument(str(case.base_dir / case.config["model"]))
-    try:
-        sketch = next((o for o in doc.Objects if o.TypeId == "Sketcher::SketchObject"), None)
-        if not sketch:
-            raise RuntimeError("No Sketcher::SketchObject in document")
-        FreeCADGui.ActiveDocument.setEdit(sketch, 0)
-        try:
-            case.run_views_only(create_missing_references=True)
-        finally:
-            FreeCADGui.ActiveDocument.resetEdit()
-    finally:
-        FreeCAD.closeDocument(doc.Name)
-```
+**Eigener Ablauf (selten):** Wenn du Dokument oder Modus selbst steuerst: `VisualTestCase(session, BASE_DIR)` bauen, Dokument öffnen, dann `case.run_views_only(reference_mode=...)` aufrufen. Dokument danach selbst schließen.
 
 Die Fixture **freecad_vis_session** (in `test/conftest.py`) stellt eine gemeinsame FreeCAD-GUI-Session für alle Tests bereit.
 
@@ -225,12 +209,12 @@ Die Fixture **freecad_vis_session** (in `test/conftest.py`) stellt eine gemeinsa
   `start()`, `open_document`, `close_document`, `set_sketch_edit_mode`, `set_active_techdraw_page`, `unset_techdraw_page`, `capture_view`, `compare_images_ssim`, `get_env_snapshot`, …
 
 - **VisualTestCase**  
-  Wird aus einer `metafile.yaml` aufgebaut.  
-  `run(create_missing_references=..., update_references=..., default_threshold=...)`  
-  `run_views_only(...)` – nur Views aufnehmen und vergleichen (Dokument muss bereits geöffnet sein).
+  Wird aus einer `metafile.yaml` aufgebaut. **metafile_path** kann ein Verzeichnis sein (dann wird `metafile.yaml` verwendet).  
+  `run(reference_mode="compare"|"create_missing"|"update", default_threshold=...)`  
+  `run_views_only(reference_mode=..., default_threshold=...)` – nur Views aufnehmen und vergleichen (Dokument muss bereits geöffnet sein).
 
-- **run_metafile_test(session, metafile_path, create_missing_references=False, update_references=False, default_threshold=None)**  
-  Bequem-Funktion: baut den VisualTestCase, öffnet das Modell, führt `run()` aus.
+- **run_metafile_test(session, metafile_path, reference_mode="compare", default_threshold=None)**  
+  Bequem-Funktion: **metafile_path** kann Ordner oder Dateipfad sein. Baut den VisualTestCase, öffnet das Modell, führt `run()` aus.
 
 - **helper** (freecad.visual_tests.helper)  
   Sketcher: `set_sketch_edit_mode(enter, sketch_name=None)`.  
