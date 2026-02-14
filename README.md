@@ -151,7 +151,9 @@ views:
 
 ## Referenzen erzeugen oder aktualisieren
 
-Ein einziger Parameter **reference_mode** steuert das Verhalten:
+**Referenzen per GitHub Action (CI-Umgebung):** Den Workflow **Update reference images** unter Actions manuell ausführen (`workflow_dispatch`). Er rendert alle Views in der CI-Umgebung, committet die neuen Referenzbilder und `freecad_env.yaml` und pusht auf den aktuellen Branch. So stimmen die Referenzen mit der Test-Umgebung auf GitHub überein.
+
+**Lokal** steuert ein einziger Parameter **reference_mode** das Verhalten:
 
 | reference_mode   | Bedeutung |
 |------------------|-----------|
