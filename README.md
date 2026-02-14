@@ -1,45 +1,66 @@
 # FreeCAD Visual Tests
 
-Framework für visuelle Regressionstests mit FreeCAD: Modelle aus `.FCStd`-Dateien laden, definierte Ansichten rendern, mit Referenzbildern per **SSIM** vergleichen.
+Framework for visual regression testing with FreeCAD: load models from `.FCStd` files, render defined views, and compare against reference images using **SSIM**.
 
-## Voraussetzungen
+## Requirements
 
-- **Linux** (getestet mit pixi/conda)
-- [pixi](https://pixi.sh/) zum Verwalten der Umgebung
-- FreeCAD wird über die pixi-Dependencies (conda-forge) bereitgestellt
+- **Linux** (tested with pixi/conda)
+- [pixi](https://pixi.sh/) for environment management
+- FreeCAD is provided via pixi dependencies (conda-forge)
 
-## Schnellstart
+## Quick start
 
 ```bash
-# Umgebung einrichten (FreeCAD, pytest, Pillow, numpy, pyyaml)
+# Set up environment (FreeCAD, pytest, Pillow, numpy, pyyaml)
 pixi install
 
-# Alle Tests ausführen (mit SSIM-Metriken in der Ausgabe)
+# Run all tests (SSIM metrics printed to stdout)
 pixi run test
 ```
 
-Ohne sichtbaren Desktop (z. B. auf CI) Tests in virtueller Anzeige laufen lassen:
+Run tests in a virtual display when no desktop is available (e.g. on CI):
 
 ```bash
 pixi run test-xvfb
 ```
 
-## Projektstruktur
+### Docker (reproducible environment)
+
+You can run the tests in a Docker container with a fixed environment (Debian Bookworm, pixi, FreeCAD from conda-forge) for long-term reproducibility.
+
+```bash
+# Build image (uses pixi.lock if present)
+docker build -t freecad-visual-tests .
+
+# Run tests (default entrypoint = test-xvfb)
+docker run --rm freecad-visual-tests
+
+# Generate reference images (update mode)
+docker run --rm freecad-visual-tests run create-references
+```
+
+**Long-term reproducibility (e.g. 10 years):**
+
+- **Keep `pixi.lock` in the repo:** `pixi install --locked` in the Dockerfile uses the exact package versions from the lock file.
+- **Pin the base image:** For strict reproducibility, pin the Debian image by digest (see comment in the Dockerfile): run `docker pull debian:bookworm-slim`, then use the digest from `docker image inspect` as `FROM debian@sha256:...` in the Dockerfile.
+- **Archive the built image:** Build the image once and save it to a registry or as a tar file (`docker save`) so you can re-run without rebuilding.
+
+## Project structure
 
 ```
 freecad.visual_tests/
 ├── freecad/visual_tests/
-│   ├── __init__.py   # VisualTestSession, VisualTestCase, SSIM-Vergleich, run_metafile_test
-│   └── helper.py     # Sketcher- und TechDraw-Logik (Edit-Modus, Seite aktivieren, MDI-Grab)
+│   ├── __init__.py   # VisualTestSession, VisualTestCase, SSIM comparison, run_metafile_test
+│   └── helper.py     # Sketcher and TechDraw logic (edit mode, page activation, export)
 ├── test/
-│   ├── conftest.py   # Session-Fixture freecad_vis_session
+│   ├── conftest.py   # Session fixture freecad_vis_session
 │   └── data/
-│       └── projekt_*/           # Ein Beispiel pro Projekt
-│           ├── metafile.yaml   # Modell, Views, Schwellenwerte
+│       └── projekt_*/           # One example per project
+│           ├── metafile.yaml   # Model, views, thresholds
 │           ├── *.FCStd / *.fcstd
 │           ├── test_projekt_*.py
-│           ├── references/     # Referenzbilder + freecad_env.yaml
-│           └── artifacts/      # Aktuelle Screenshots (gitignored)
+│           ├── references/     # Reference images + freecad_env.yaml
+│           └── artifacts/     # Current screenshots (gitignored)
 ├── pixi.toml
 ├── pyproject.toml
 └── README.md
@@ -47,52 +68,52 @@ freecad.visual_tests/
 
 ## Metafile (metafile.yaml)
 
-Jeder Testordner enthält eine `metafile.yaml`, die Modell, Ansichten und Vergleichsparameter beschreibt.
+Each test folder contains a `metafile.yaml` that describes the model, views, and comparison parameters.
 
-### Top-Level
+### Top-level
 
-| Feld | Beschreibung |
-|------|--------------|
-| `version` | Konfigurationsversion (z. B. `1`); für zukünftige Kompatibilität – bei Änderung des Metafile-Formats wird die Version erhöht. |
-| `model` | Dateiname der FreeCAD-Datei (`.FCStd`/`.fcstd`) im gleichen Ordner |
-| `description` | Kurzbeschreibung (optional) |
+| Field | Description |
+|-------|-------------|
+| `version` | Config version (e.g. `1`); for future compatibility – version is bumped when the metafile format changes. |
+| `model` | FreeCAD file name (`.FCStd`/`.fcstd`) in the same folder |
+| `description` | Short description (optional) |
 
 ### default
 
-Alle Felder sind optional; sinnvolle Defaults erlauben eine schlanke Metafile.
+All fields are optional; sensible defaults allow a minimal metafile.
 
-| Feld | Bedeutung | Standard |
-|------|------------|----------|
-| `image_dir` | Ordner für Referenzbilder | `references` |
-| `image_format` | Bildformat (derzeit nur PNG unterstützt) | `png` |
-| `threshold` | Mindest-SSIM (0…1) pro View | `0.98` |
-| `fit_all` | 3D: bei `true` Orientierung + fitAll; bei `false` Kamera aus View nutzen | `true` |
-| `orientation` | 3D bei fit_all: Standard-Orientierung (`iso`, `front`, `top`, …) | `iso` |
+| Field | Meaning | Default |
+|-------|---------|---------|
+| `image_dir` | Folder for reference images | `references` |
+| `image_format` | Image format (only PNG supported so far) | `png` |
+| `threshold` | Minimum SSIM (0…1) per view | `0.98` |
+| `fit_all` | 3D: when `true` use orientation + fitAll; when `false` use camera from view | `true` |
+| `orientation` | 3D with fit_all: default orientation (`iso`, `front`, `top`, …) | `iso` |
 
 ### views
 
-Liste von Ansichten. Jede View hat:
+List of views. Each view has:
 
-| Feld | Pflicht | Beschreibung |
-|------|--------|--------------|
-| `id` | ja | Eindeutige ID (z. B. für Ausgabe und Fehlermeldungen) |
-| `label` | nein | Lesbare Beschreibung |
-| `type` | nein | `3d` (Standard) oder `techdraw` |
-| `camera` | nein | Kamera (position, target, up, fov, projection); nur genutzt wenn `fit_all: false` |
-| `fit_all` | nein | 3D: `true` = Orientierung + fitAll (Standard), `false` = Kamera aus View/`camera` anwenden |
-| `orientation` | nein | 3D bei fit_all: `iso`, `front`, `top`, `bottom`, `left`, `right`, `rear` (Standard: `iso`) |
-| `display` | nein | z. B. `size: [1600, 1200]` für Auflösung (3D-Hintergrund ist immer weiß) |
-| `output` | nein | `filename`: Dateiname des Screenshots (Default: `{id}.png`) |
-| `output.threshold` | nein | View-spezifischer SSIM-Schwellenwert (überschreibt default) |
-| `sketch_edit` | nein | `true` = Sketch vor dem Screenshot in den Edit-Modus versetzen (wird vom Test gesteuert, siehe projekt_3) |
-| `sketch_name` | nein | Name des Sketches; wenn leer, erster `Sketcher::SketchObject` |
-| `techdraw_page` | nein | Name der TechDraw-Seite; `null` = erste `TechDraw::DrawPage` |
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | yes | Unique ID (e.g. for output and error messages) |
+| `label` | no | Human-readable description |
+| `type` | no | `3d` (default) or `techdraw` |
+| `camera` | no | Camera (position, target, up, fov, projection); only used when `fit_all: false` |
+| `fit_all` | no | 3D: `true` = orientation + fitAll (default), `false` = apply camera from view/`camera` |
+| `orientation` | no | 3D with fit_all: `iso`, `front`, `top`, `bottom`, `left`, `right`, `rear` (default: `iso`) |
+| `display` | no | e.g. `size: [1600, 1200]` for resolution (3D background is always white) |
+| `output` | no | `filename`: screenshot file name (default: `{id}.png`) |
+| `output.threshold` | no | View-specific SSIM threshold (overrides default) |
+| `sketch_edit` | no | `true` = put sketch in edit mode before screenshot (see projekt_3) |
+| `sketch_name` | no | Sketch object name; if empty, first `Sketcher::SketchObject` |
+| `techdraw_page` | no | TechDraw page name; `null` = first `TechDraw::DrawPage` |
 
-### Beispiel (3D-Views)
+### Example (3D views)
 
 ```yaml
 version: 1
-model: "MeinModell.FCStd"
+model: "MyModel.FCStd"
 
 default:
   image_dir: "references"
@@ -117,7 +138,7 @@ views:
       filename: "front.png"
 ```
 
-### Beispiel (TechDraw)
+### Example (TechDraw)
 
 ```yaml
 views:
@@ -127,68 +148,68 @@ views:
       filename: "object_3d.png"
   - id: "techdraw_page"
     type: "techdraw"
-    techdraw_page: null   # erste DrawPage
+    techdraw_page: null   # first DrawPage
     display:
       size: [1600, 1200]
     output:
       filename: "techdraw_page.png"
 ```
 
-## Bildvergleich (SSIM)
+## Image comparison (SSIM)
 
-- Es wird ausschließlich **SSIM** (Structural Similarity) verwendet (nur NumPy, keine weiteren Bild-Bibliotheken).
-- Ein Wert von **1.0** = identisch; **0.98** = sehr ähnlich.
-- `threshold` in der Metafile = **Mindest-SSIM**; der Test besteht, wenn `SSIM >= threshold`.
-- Bei jedem Lauf werden pro View Zeilen ausgegeben, z. B.  
+- Only **SSIM** (Structural Similarity) is used (NumPy only, no other image libraries).
+- A value of **1.0** = identical; **0.98** = very similar.
+- `threshold` in the metafile = **minimum SSIM**; the test passes when `SSIM >= threshold`.
+- Each run prints one line per view, e.g.  
   `[projekt_1] engine_iso: SSIM=0.9990 (threshold=0.98) passed`
 
-## Referenzen und Artefakte
+## References and artifacts
 
 - **references/**  
-  Referenzbilder und `freecad_env.yaml`. Diese Dateien werden versioniert und definieren den „erwarteten“ Zustand.
+  Reference images and `freecad_env.yaml`. These files are versioned and define the “expected” state.
 
 - **artifacts/**  
-  Bei jedem Testlauf erzeugte Screenshots und eine aktuelle `freecad_env.yaml`. Wird von `.gitignore` ausgeschlossen.
+  Screenshots and a current `freecad_env.yaml` produced on each test run. Excluded by `.gitignore`.
 
 - **freecad_env.yaml**  
-  Enthält u. a. `freecad_version`, `python_version`, `occt_version`, `coin_version`, `pivy_version` (für Reproduzierbarkeit). Wird bei jedem Lauf in `artifacts/` geschrieben und beim Erzeugen/Aktualisieren von Referenzen auch in `references/` geschrieben.
+  Contains e.g. `freecad_version`, `python_version`, `occt_version`, `coin_version`, `pivy_version` (for reproducibility). Written to `artifacts/` on every run and also to `references/` when creating or updating references.
 
-## Referenzen erzeugen oder aktualisieren
+## Creating or updating references
 
-**Referenzen per GitHub Action (CI-Umgebung):** Den Workflow **Update reference images** unter Actions manuell ausführen (`workflow_dispatch`). Er rendert alle Views in der CI-Umgebung, committet die neuen Referenzbilder und `freecad_env.yaml` und pusht auf den aktuellen Branch. So stimmen die Referenzen mit der Test-Umgebung auf GitHub überein.
+**References via GitHub Action (CI):** Run the **Update reference images** workflow manually under Actions (`workflow_dispatch`). It renders all views in the CI environment, commits the new reference images and `freecad_env.yaml`, and pushes to the current branch so references match the test environment on GitHub.
 
-**Lokal** steuert ein einziger Parameter **reference_mode** das Verhalten:
+**Locally**, a single parameter **reference_mode** controls behaviour:
 
-| reference_mode   | Bedeutung |
-|------------------|-----------|
-| `"compare"`      | Nur vergleichen; schlägt fehl, wenn eine Referenz fehlt (Standard). |
-| `"create_missing"` | Fehlende Referenzen aus dem aktuellen Lauf anlegen, vorhandene vergleichen. |
-| `"update"`       | Alle Referenzen schreiben (anlegen oder überschreiben), kein Vergleich (z. B. nach FreeCAD-Update). |
+| reference_mode   | Meaning |
+|-----------------|---------|
+| `"compare"`     | Compare only; fail if a reference is missing (default). |
+| `"create_missing"` | Create missing references from the current run, compare existing ones. |
+| `"update"`      | Write all references (create or overwrite), no comparison (e.g. after FreeCAD update). |
 
-Beispiel: `run_metafile_test(session, BASE_DIR, reference_mode="create_missing")`.
+Example: `run_metafile_test(session, BASE_DIR, reference_mode="create_missing")`.
 
-## Wann was verwenden?
+## When to use what
 
-| Ziel | Vorgehen |
+| Goal | Approach |
 |------|----------|
-| Normale Tests (ein Modell, 3D/TechDraw/Sketcher per Metafile) | `run_metafile_test(session, BASE_DIR, reference_mode="compare")` (oder `"create_missing"` beim ersten Anlegen von Referenzen). |
-| Referenzen einmalig anlegen | `reference_mode="create_missing"`. |
-| Referenzen nach FreeCAD-/Umgebungswechsel neu schreiben | `reference_mode="update"`. |
-| Eigenes Dokument- oder Modus-Handling (selten) | `VisualTestCase(session, BASE_DIR)` bauen, Dokument selbst öffnen/schließen, `case.run_views_only(reference_mode=...)` aufrufen. |
+| Normal tests (one model, 3D/TechDraw/Sketcher via metafile) | `run_metafile_test(session, BASE_DIR, reference_mode="compare")` (or `"create_missing"` when creating references for the first time). |
+| Create references once | `reference_mode="create_missing"`. |
+| Regenerate references after FreeCAD/environment change | `reference_mode="update"`. |
+| Custom document or mode handling (rare) | Build `VisualTestCase(session, BASE_DIR)`, open/close document yourself, call `case.run_views_only(reference_mode=...)`. Close document afterwards. |
 
-## Beispiele (projekt_1–5)
+## Examples (projekt_1–5)
 
-| Projekt | Inhalt |
-|---------|--------|
-| **projekt_1** | Engine-Block, mehrere 3D-Ansichten (iso, front, top) |
-| **projekt_2** | Part-Design-Tutorial, 3D-Ansichten |
-| **projekt_3** | Sketcher: `sketch_edit: true` in der Metafile, Standard-`run_metafile_test` |
-| **projekt_4** | Assembly-Beispiel, 3D-Ansichten |
-| **projekt_5** | TechDraw: 3D-Objekt + TechDraw-Seite als getrennte Bilder |
+| Project | Content |
+|---------|---------|
+| **projekt_1** | Engine block, multiple 3D views (iso, front, top) |
+| **projekt_2** | Part Design tutorial, 3D views |
+| **projekt_3** | Sketcher: `sketch_edit: true` in metafile, standard `run_metafile_test` |
+| **projekt_4** | Assembly example, 3D views |
+| **projekt_5** | TechDraw: 3D object + TechDraw page as separate images |
 
-## Einen neuen Test schreiben
+## Writing a new test
 
-**Standardfall:** Ordner mit `metafile.yaml` übergeben (Pfad kann Verzeichnis oder Datei sein; bei Verzeichnis wird automatisch `metafile.yaml` verwendet):
+**Standard case:** Pass a folder with `metafile.yaml` (path can be directory or file; if directory, `metafile.yaml` is used automatically):
 
 ```python
 from pathlib import Path
@@ -196,62 +217,62 @@ from freecad.visual_tests import run_metafile_test
 
 BASE_DIR = Path(__file__).resolve().parent
 
-def test_mein_projekt(freecad_vis_session):
+def test_my_project(freecad_vis_session):
     run_metafile_test(
         freecad_vis_session,
         BASE_DIR,
-        reference_mode="create_missing",  # Referenzen anlegen, wenn fehlend
+        reference_mode="create_missing",  # create references when missing
     )
 ```
 
-**Sketcher (Edit-Modus):** In der Metafile bei der betreffenden View `sketch_edit: true` (optional `sketch_name`) setzen – das Framework öffnet das Dokument, setzt den Sketch in den Edit-Modus, macht den Screenshot und beendet den Edit-Modus. Kein eigener Testcode nötig (siehe projekt_3).
+**Sketcher (edit mode):** Set `sketch_edit: true` (and optionally `sketch_name`) on the view in the metafile – the framework opens the document, puts the sketch in edit mode, takes the screenshot, and leaves edit mode. No extra test code needed (see projekt_3).
 
-**Threshold lockerer setzen (z. B. lokal):** `run_metafile_test(session, BASE_DIR, default_threshold=0.95)` – überschreibt den Metafile-Default für diesen Lauf.
+**Use a looser threshold (e.g. locally):** `run_metafile_test(session, BASE_DIR, default_threshold=0.95)` – overrides the metafile default for that run.
 
-**Eigener Ablauf (selten):** Wenn du Dokument oder Modus selbst steuerst: `VisualTestCase(session, BASE_DIR)` bauen, Dokument öffnen, dann `case.run_views_only(reference_mode=...)` aufrufen. Dokument danach selbst schließen.
+**Custom flow (rare):** If you control document or mode yourself: build `VisualTestCase(session, BASE_DIR)`, open the document, then call `case.run_views_only(reference_mode=...)`. Close the document yourself afterwards.
 
-**Session:** Die Fixture **freecad_vis_session** (in `test/conftest.py`) stellt eine gemeinsame FreeCAD-GUI-Session für alle Tests bereit. Für Skripte außerhalb pytest: `session = VisualTestSession.start()` aufrufen, dann z. B. `run_metafile_test(session, path)`; am Ende `session.shutdown()`.
+**Session:** The **freecad_vis_session** fixture (in `test/conftest.py`) provides a shared FreeCAD GUI session for all tests. For scripts outside pytest: call `session = VisualTestSession.start()`, then e.g. `run_metafile_test(session, path)`; call `session.shutdown()` at the end.
 
-## Bekannte Einschränkungen
+## Known limitations
 
-- **Plattform:** Getestet unter Linux (pixi/conda). Ohne sichtbaren Desktop (z. B. CI) ist eine virtuelle Anzeige nötig (`pixi run test-xvfb`).
-- **Eine GUI-Session pro Lauf:** Alle Tests teilen sich eine FreeCAD-GUI-Session (Fixture); Dokumente werden nacheinander geöffnet und geschlossen.
-- **Reihenfolge:** Die Reihenfolge der Tests kann bei geteilten Dokumenten oder globalen FreeCAD-Einstellungen relevant sein.
-- **Ein Modell pro Metafile:** Jede `metafile.yaml` referenziert genau eine `.FCStd`-Datei; Erweiterung auf mehrere Modelle ist nicht vorgesehen.
-- **Shutdown:** Beim Beenden schließt `session.shutdown()` alle geöffneten Dokumente und verarbeitet Qt-Events, um einen Absturz beim Prozessende (z. B. in `View3DInventor`-Destruktor) zu vermeiden. Tritt danach trotzdem ein Segfault auf, ist das Testergebnis bereits festgelegt.
+- **Platform:** Tested on Linux (pixi/conda). Without a visible desktop (e.g. CI), a virtual display is required (`pixi run test-xvfb`).
+- **One GUI session per run:** All tests share one FreeCAD GUI session (fixture); documents are opened and closed in sequence.
+- **Order:** Test order can matter with shared documents or global FreeCAD settings.
+- **One model per metafile:** Each `metafile.yaml` references exactly one `.FCStd` file; multiple models per metafile are not supported.
+- **Shutdown:** On exit, `session.shutdown()` closes all open documents and processes Qt events to avoid crashes at process end (e.g. in `View3DInventor` destructor). If a segfault still occurs afterwards, the test result is already fixed.
 
-## Pixi-Tasks
+## Pixi tasks
 
-| Task | Beschreibung |
-|------|--------------|
-| `pixi run test` | Tests mit pytest ausführen; `-s` zeigt SSIM-Metriken |
-| `pixi run test-xvfb` | Wie `test`, aber in xvfb; Exit-Code 0/1 entspricht dem Testergebnis auch bei FreeCAD-Absturz beim Beenden |
-| `pixi run create-references` | Referenzbilder anlegen/aktualisieren (Tests in xvfb mit `VISUAL_TEST_REFERENCE_MODE=update`) |
-| `pixi run clean-artifacts` | Alle Dateien unter `test/**/artifacts/*` löschen |
-| `pixi run clean-references` | Alle Dateien unter `test/**/references/*` löschen |
-| `pixi run dev-install` | Paket im Entwicklungsmodus installieren (`pip install -e .`) |
+| Task | Description |
+|------|-------------|
+| `pixi run test` | Run tests with pytest; `-s` shows SSIM metrics |
+| `pixi run test-xvfb` | Same as `test` but in xvfb; exit code 0/1 reflects test result even if FreeCAD crashes on shutdown |
+| `pixi run create-references` | Create or update reference images (runs tests in xvfb with `VISUAL_TEST_REFERENCE_MODE=update`) |
+| `pixi run clean-artifacts` | Remove all files under `test/**/artifacts/*` |
+| `pixi run clean-references` | Remove all files under `test/**/references/*` |
+| `pixi run dev-install` | Install package in development mode (`pip install -e .`) |
 
-## API (Kurzüberblick)
+## API (overview)
 
-### Öffentliche API (für normale Tests)
+### Public API (for normal tests)
 
 - **run_metafile_test(session, metafile_path, reference_mode="compare", default_threshold=None)**  
-  Bequem-Funktion für fast alle Fälle. **metafile_path** kann Ordner (dann `metafile.yaml`) oder Dateipfad sein. Öffnet Modell, führt alle Views aus, vergleicht mit Referenzen.
+  Convenience function for most cases. **metafile_path** can be a folder (then `metafile.yaml`) or a file path. Opens the model, runs all views, compares with references.
 
 - **VisualTestCase(session, metafile_path)**  
-  Wird aus einer `metafile.yaml` aufgebaut.  
-  `run(reference_mode=..., default_threshold=...)` – Modell öffnen, Views ausführen, Modell schließen.  
-  `run_views_only(reference_mode=..., default_threshold=...)` – nur Views (Dokument muss bereits geöffnet sein; für eigenen Ablauf).
+  Built from a `metafile.yaml`.  
+  `run(reference_mode=..., default_threshold=...)` – open model, run views, close model.  
+  `run_views_only(reference_mode=..., default_threshold=...)` – views only (document must already be open; for custom flow).
 
 - **VisualTestSession**  
-  `start()`, `shutdown()`, `open_document`, `close_document`, `get_env_snapshot`. Wird in pytest über die Fixture **freecad_vis_session** bereitgestellt.
+  `start()`, `shutdown()`, `open_document`, `close_document`, `get_env_snapshot`. Provided in pytest via the **freecad_vis_session** fixture.
 
-### Erweiterte Nutzung / Helper
+### Advanced use / helpers
 
-- **helper** (freecad.visual_tests.helper) – Sketcher- und TechDraw-Steuerung, falls du den Ablauf selbst implementierst:  
+- **helper** (freecad.visual_tests.helper) – Sketcher and TechDraw control if you implement the flow yourself:  
   `set_sketch_edit_mode(enter, sketch_name=None)`, `set_active_techdraw_page(page_name=None)`, `unset_techdraw_page()`, `process_events_and_delay()`, `get_techdraw_page_view()`, `grab_mdi_active_subwindow(output_path, width, height)`.  
-  Über die Session: `session.set_sketch_edit_mode`, `session.set_active_techdraw_page`, `session.unset_techdraw_page`.
+  Via the session: `session.set_sketch_edit_mode`, `session.set_active_techdraw_page`, `session.unset_techdraw_page`.
 
-## Lizenz / Autor
+## License / author
 
-Siehe `pyproject.toml` bzw. Projekt-Metadaten.
+See `pyproject.toml` or project metadata.
