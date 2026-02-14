@@ -35,23 +35,23 @@ For a fixed environment (e.g. same OS, pixi, FreeCAD from conda-forge), use a Do
 ```
 freecad.visual_tests/
 ├── freecad/visual_tests/
-│   ├── __init__.py   # ViewConfig, VisualTestCase, run_metafile_test (no FreeCAD import)
-│   ├── ssim.py       # SSIM comparison (ComparisonResult, ssim_value, compare_images_ssim); no FreeCAD
-│   ├── similarity.py # Feature-based similarity (ORB, feature_similarity); no FreeCAD; requires opencv
+│   ├── __init__.py   # discover_projects, run_metafile_test, VisualTestCase, __version__
+│   ├── ssim.py       # SSIM comparison (ComparisonResult, compare_images_ssim); no FreeCAD
+│   ├── similarity.py # Feature-based similarity (ORB); no FreeCAD; requires opencv
 │   ├── visual.py     # VisualTestSession, FreeCAD-dependent capture/session
-│   └── helper.py     # Sketcher and TechDraw logic (edit mode, page activation, export)
+│   └── helper.py     # Sketcher and TechDraw (edit mode, page activation, export)
 ├── scripts/
 │   └── run_visual_tests_xvfb.py   # Runs pytest under xvfb; used by test-xvfb / create-references-xvfb
 ├── test/
-│   ├── conftest.py   # Session fixture freecad_vis_session (imports VisualTestSession from .visual)
+│   ├── conftest.py   # Session fixture freecad_vis_session
+│   ├── test_visual_projects.py   # Parametrised test over all projects (no per-project Python)
 │   ├── test_framework_selftest.py # SSIM unit tests, no FreeCAD (pixi run selftest)
 │   └── data/
-│       └── projekt_*/           # One example per project
-│           ├── metafile.yaml   # Model, views, thresholds
+│       └── projekt_*/           # One folder per project (discovered by metafile.yaml)
+│           ├── metafile.yaml    # Model, views, thresholds
 │           ├── *.FCStd / *.fcstd
-│           ├── test_projekt_*.py
 │           ├── references/     # Reference images + freecad_env.yaml
-│           └── artifacts/     # Current screenshots (gitignored)
+│           └── artifacts/      # Current screenshots (gitignored)
 ├── pixi.toml
 ├── pyproject.toml
 └── README.md
@@ -96,7 +96,7 @@ List of views. Each view has:
 | `display` | no | e.g. `size: [1600, 1200]` for resolution (3D background is always white) |
 | `output` | no | `filename`: screenshot file name (default: `{id}.png`) |
 | `output.threshold` | no | View-specific SSIM threshold (overrides default) |
-| `sketch_edit` | no | `true` = put sketch in edit mode before screenshot (see projekt_3) |
+| `sketch_edit` | no | `true` = put sketch in edit mode before screenshot (e.g. projekt_3) |
 | `sketch_name` | no | Sketch object name; if empty, first `Sketcher::SketchObject` |
 | `techdraw_page` | no | TechDraw page name; `null` = first `TechDraw::DrawPage` |
 | `compare_method` | no | `ssim` (default, pixel-based) or `feature` (ORB, robust to small perspective/scale changes) |
@@ -155,7 +155,8 @@ views:
 - A value of **1.0** = identical; **0.98** = very similar.
 - `threshold` in the metafile = **minimum SSIM**; the test passes when `SSIM >= threshold`.
 - Each run prints one line per view, e.g.  
-  `[projekt_1] engine_iso: SSIM=0.9990 (threshold=0.98) passed`
+  `[projekt_1] engine_iso: SSIM=0.9990 (threshold=0.98) passed`  
+  (Project name = folder name under `test/data/`.)
 
 ### Feature-based (ORB)
 
@@ -178,24 +179,24 @@ views:
 
 **References via GitHub Action (CI):** Run the **Update reference images** workflow manually under Actions (`workflow_dispatch`). It renders all views in the CI environment, commits the new reference images and `freecad_env.yaml`, and pushes to the current branch.
 
-**Locally**, either run `pixi run create-references-xvfb` (writes all references), or pass **reference_mode** in code:
+**Locally**, either run `pixi run create-references-xvfb` (writes all references), or set env **VISUAL_TEST_REFERENCE_MODE** (see below). If you call the API directly, pass **reference_mode**; if `None`, the env var is used (default: `create_missing`).
 
 | reference_mode   | Meaning |
 |-----------------|---------|
-| `"compare"`     | Compare only; fail if a reference is missing (default). |
-| `"create_missing"` | Create missing references from the current run, compare existing ones. |
+| `"compare"`     | Compare only; fail if a reference is missing (default when env not set). |
+| `"create_missing"` | Create missing references from the current run, compare existing ones. (Default when env is unset.) |
 | `"update"`      | Write all references (create or overwrite), no comparison (e.g. after FreeCAD update). |
 
-Example: `run_metafile_test(session, BASE_DIR, reference_mode="create_missing")`.
+Example: `run_metafile_test(session, project_dir)` (uses env); or `run_metafile_test(session, project_dir, reference_mode="create_missing")`.
 
 ## When to use what
 
 | Goal | Approach |
 |------|----------|
-| Normal tests (one model, 3D/TechDraw/Sketcher via metafile) | `run_metafile_test(session, BASE_DIR, reference_mode="compare")` (or `"create_missing"` when creating references for the first time). |
-| Create references once | `reference_mode="create_missing"`. |
-| Regenerate references after FreeCAD/environment change | `reference_mode="update"`. |
-| Custom document or mode handling (rare) | Build `VisualTestCase(session, BASE_DIR)`, open/close document yourself, call `case.run_views_only(reference_mode=...)`. Close document afterwards. |
+| Normal tests (one model, 3D/TechDraw/Sketcher via metafile) | `run_metafile_test(session, project_dir)` (uses env) or pass `reference_mode="compare"` / `"create_missing"`. |
+| Create references once | `reference_mode="create_missing"` or env `VISUAL_TEST_REFERENCE_MODE=create_missing`. |
+| Regenerate references after FreeCAD/environment change | `reference_mode="update"` or `pixi run create-references-xvfb`. |
+| Custom document or mode handling (rare) | Build `VisualTestCase(session, metafile_path)`, open/close document yourself, call `case.run_views_only(reference_mode=...)`. Close document afterwards. |
 
 ## Examples (projekt_1–5)
 
@@ -207,31 +208,21 @@ Example: `run_metafile_test(session, BASE_DIR, reference_mode="create_missing")`
 | **projekt_4** | Assembly example, 3D views |
 | **projekt_5** | TechDraw: 3D object + TechDraw page as separate images |
 
-## Writing a new test
+## Adding a new visual test project
 
-**Standard case:** Pass a folder with `metafile.yaml` (path can be directory or file; if directory, `metafile.yaml` is used automatically):
+**No Python file needed.** Add a new folder under `test/data/` with:
 
-```python
-from pathlib import Path
-from freecad.visual_tests import run_metafile_test
+- **metafile.yaml** – model name, views, thresholds (see Metafile section above)
+- **&lt;model&gt;.FCStd** – the FreeCAD file
+- **references/** – created by `pixi run create-references-xvfb` or first run with `VISUAL_TEST_REFERENCE_MODE=create_missing`
 
-BASE_DIR = Path(__file__).resolve().parent
+The test runner (`test/test_visual_projects.py`) discovers every folder under `test/data/` that contains `metafile.yaml` and runs one test per folder.
 
-def test_my_project(freecad_vis_session):
-    run_metafile_test(
-        freecad_vis_session,
-        BASE_DIR,
-        reference_mode="create_missing",  # create references when missing
-    )
-```
+**Sketcher (edit mode):** Set `sketch_edit: true` (and optionally `sketch_name`) on the view in the metafile – no extra code (e.g. projekt_3).
 
-**Sketcher (edit mode):** Set `sketch_edit: true` (and optionally `sketch_name`) on the view in the metafile – the framework opens the document, puts the sketch in edit mode, takes the screenshot, and leaves edit mode. No extra test code needed (see projekt_3).
+**Custom integration:** Use `discover_projects(data_dir)` for the list of project dirs; call `run_metafile_test(session, project_dir, reference_mode=...)`. Optional: `run_metafile_test(..., default_threshold=0.95)` to override the metafile threshold.
 
-**Use a looser threshold (e.g. locally):** `run_metafile_test(session, BASE_DIR, default_threshold=0.95)` – overrides the metafile default for that run.
-
-**Custom flow (rare):** If you control document or mode yourself: build `VisualTestCase(session, BASE_DIR)`, open the document, then call `case.run_views_only(reference_mode=...)`. Close the document yourself afterwards.
-
-**Session:** The **freecad_vis_session** fixture (in `test/conftest.py`) provides a shared FreeCAD GUI session for all tests. For scripts outside pytest: `from freecad.visual_tests.visual import VisualTestSession`; call `session = VisualTestSession.start()`, then e.g. `run_metafile_test(session, path)`; call `session.shutdown()` at the end.
+**Session:** The **freecad_vis_session** fixture (in `test/conftest.py`) provides a shared FreeCAD GUI session. Outside pytest: `from freecad.visual_tests.visual import VisualTestSession`; `session = VisualTestSession.start()`; then e.g. `run_metafile_test(session, path)`; `session.shutdown()` at the end.
 
 ## Known limitations
 
@@ -253,21 +244,28 @@ def test_my_project(freecad_vis_session):
 | `pixi run clean-references` | Remove all files under `test/**/references/*` |
 | `pixi run clean` | Remove both artifacts and references |
 | `pixi run dev-install` | Install package in development mode (`pip install -e .`) |
+| `pixi run build-pypi` | Build sdist and wheel for PyPI (output in `dist/`) |
+| `pixi run upload-pypi` | Upload `dist/*` to PyPI (uses `TWINE_USERNAME`/`TWINE_PASSWORD` or `~/.pypirc`) |
 
 ## API (overview)
 
 ### Public API (for normal tests)
 
-- **run_metafile_test(session, metafile_path, reference_mode="compare", default_threshold=None)**  
-  Convenience function for most cases. **metafile_path** can be a folder (then `metafile.yaml`) or a file path. Opens the model, runs all views, compares with references.
+- **discover_projects(data_dir)**  
+  Returns a sorted list of directories under **data_dir** that contain `metafile.yaml`. Used by the default test runner to find all projects.
+
+- **run_metafile_test(session, metafile_path, reference_mode=None, default_threshold=None)**  
+  Convenience function for most cases. **metafile_path** can be a folder (then `metafile.yaml`) or a file path. If **reference_mode** is `None`, uses env `VISUAL_TEST_REFERENCE_MODE` (default: `create_missing`). Opens the model, runs all views, compares with references.
 
 - **VisualTestCase(session, metafile_path)**  
   Built from a `metafile.yaml`.  
   `run(reference_mode=..., default_threshold=...)` – open model, run views, close model.  
-  `run_views_only(reference_mode=..., default_threshold=...)` – views only (document must already be open; for custom flow).
+  `run_views_only(...)` – views only (document must already be open; for custom flow).
 
 - **VisualTestSession** (from `freecad.visual_tests.visual`)  
   `start()`, `shutdown()`, `open_document`, `close_document`, `get_env_snapshot`. Provided in pytest via the **freecad_vis_session** fixture.
+
+- **__version__** – Package version (e.g. `"0.1.0"`).
 
 ### SSIM module (no FreeCAD)
 
@@ -282,6 +280,12 @@ def test_my_project(freecad_vis_session):
 - **helper** (freecad.visual_tests.helper) – Sketcher and TechDraw control if you implement the flow yourself:  
   `set_sketch_edit_mode(enter, sketch_name=None)`, `set_active_techdraw_page(page_name=None)`, `unset_techdraw_page()`, `process_events_and_delay()`, and others.  
   Via the session: `session.set_sketch_edit_mode`, `session.set_active_techdraw_page`, `session.unset_techdraw_page`.
+
+## Publishing to PyPI
+
+- **Build:** `pixi run build-pypi` (creates `dist/`).
+- **Upload (local):** `pixi run upload-pypi` (uses `TWINE_USERNAME` / `TWINE_PASSWORD` or `~/.pypirc`).
+- **CI:** The workflow `.github/workflows/publish-pypi.yml` runs on **Release published** or **workflow_dispatch**. Add repository secret **PYPI_API_TOKEN** (create at [pypi.org/manage/account/token/](https://pypi.org/manage/account/token/)), then create a release or run the workflow manually to publish.
 
 ## License / author
 
