@@ -17,6 +17,7 @@ freecad = "*"
 [tasks]
 test = { cmd = "pytest -s", description = "Run visual tests (SSIM); -s prints metrics" }
 test-xvfb = { cmd = "python scripts/run_visual_tests_xvfb.py", description = "Run tests in xvfb; exit 0/1 from test result even if FreeCAD crashes on shutdown" }
+selftest = { cmd = "pytest test/test_framework_selftest.py -v", description = "Self-test framework (SSIM logic, no FreeCAD GUI)" }
 create-references-xvfb = { cmd = "python scripts/run_visual_tests_xvfb.py", env = { VISUAL_TEST_REFERENCE_MODE = "update" }, description = "Create or update reference images (run tests in xvfb with update mode)" }
 clean-artifacts = { cmd = "rm -f test/**/artifacts/*", description = "Remove artifact images" }
 clean-references = { cmd = "rm -f test/**/references/*", description = "Remove reference images" }

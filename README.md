@@ -50,7 +50,8 @@ docker run --rm freecad-visual-tests run create-references
 ```
 freecad.visual_tests/
 ├── freecad/visual_tests/
-│   ├── __init__.py   # VisualTestSession, VisualTestCase, SSIM comparison, run_metafile_test
+│   ├── __init__.py   # ViewConfig, VisualTestCase, run_metafile_test (no FreeCAD import)
+│   ├── visual.py     # VisualTestSession, FreeCAD-dependent capture/session
 │   └── helper.py     # Sketcher and TechDraw logic (edit mode, page activation, export)
 ├── test/
 │   ├── conftest.py   # Session fixture freecad_vis_session
@@ -231,7 +232,7 @@ def test_my_project(freecad_vis_session):
 
 **Custom flow (rare):** If you control document or mode yourself: build `VisualTestCase(session, BASE_DIR)`, open the document, then call `case.run_views_only(reference_mode=...)`. Close the document yourself afterwards.
 
-**Session:** The **freecad_vis_session** fixture (in `test/conftest.py`) provides a shared FreeCAD GUI session for all tests. For scripts outside pytest: call `session = VisualTestSession.start()`, then e.g. `run_metafile_test(session, path)`; call `session.shutdown()` at the end.
+**Session:** The **freecad_vis_session** fixture (in `test/conftest.py`) provides a shared FreeCAD GUI session for all tests. For scripts outside pytest: `from freecad.visual_tests.visual import VisualTestSession`; call `session = VisualTestSession.start()`, then e.g. `run_metafile_test(session, path)`; call `session.shutdown()` at the end.
 
 ## Known limitations
 
@@ -264,7 +265,7 @@ def test_my_project(freecad_vis_session):
   `run(reference_mode=..., default_threshold=...)` – open model, run views, close model.  
   `run_views_only(reference_mode=..., default_threshold=...)` – views only (document must already be open; for custom flow).
 
-- **VisualTestSession**  
+- **VisualTestSession** (from `freecad.visual_tests.visual`)  
   `start()`, `shutdown()`, `open_document`, `close_document`, `get_env_snapshot`. Provided in pytest via the **freecad_vis_session** fixture.
 
 ### Advanced use / helpers
