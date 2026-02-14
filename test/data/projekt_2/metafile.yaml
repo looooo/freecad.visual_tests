@@ -6,17 +6,13 @@ default:
   image_dir: "references"
   image_format: "png"
   threshold: 0.98
+  fit_all: true
 
 views:
   - id: "part_iso"
     label: "Isometric part view"
     type: "3d"
-    camera:
-      position: [150, 150, 150]
-      target: [0, 0, 0]
-      up: [0, 0, 1]
-      fov: 35.0
-      projection: "perspective"
+    orientation: "iso"
     display:
       mode: "shaded"
       size: [1600, 1200]
@@ -26,12 +22,7 @@ views:
   - id: "part_side"
     label: "Side orthographic view"
     type: "3d"
-    camera:
-      position: [300, 0, 0]
-      target: [0, 0, 0]
-      up: [0, 0, 1]
-      fov: 1.0
-      projection: "orthographic"
+    orientation: "right"
     display:
       mode: "shaded"
       size: [1600, 1200]
@@ -41,12 +32,7 @@ views:
   - id: "part_top"
     label: "Top orthographic view"
     type: "3d"
-    camera:
-      position: [0, 0, 300]
-      target: [0, 0, 0]
-      up: [0, 1, 0]
-      fov: 1.0
-      projection: "orthographic"
+    orientation: "top"
     display:
       mode: "shaded"
       size: [1600, 1200]

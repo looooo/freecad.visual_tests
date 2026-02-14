@@ -66,6 +66,8 @@ Alle Felder sind optional; sinnvolle Defaults erlauben eine schlanke Metafile.
 | `image_dir` | Ordner für Referenzbilder | `references` |
 | `image_format` | Bildformat (derzeit nur PNG unterstützt) | `png` |
 | `threshold` | Mindest-SSIM (0…1) pro View | `0.98` |
+| `fit_all` | 3D: bei `true` Orientierung + fitAll; bei `false` Kamera aus View nutzen | `true` |
+| `orientation` | 3D bei fit_all: Standard-Orientierung (`iso`, `front`, `top`, …) | `iso` |
 
 ### views
 
@@ -76,7 +78,9 @@ Liste von Ansichten. Jede View hat:
 | `id` | ja | Eindeutige ID (z. B. für Ausgabe und Fehlermeldungen) |
 | `label` | nein | Lesbare Beschreibung |
 | `type` | nein | `3d` (Standard) oder `techdraw` |
-| `camera` | nein | Kamera-Parameter (position, target, up, fov, projection) – für 3D derzeit nur grob genutzt |
+| `camera` | nein | Kamera (position, target, up, fov, projection); nur genutzt wenn `fit_all: false` |
+| `fit_all` | nein | 3D: `true` = Orientierung + fitAll (Standard), `false` = Kamera aus View/`camera` anwenden |
+| `orientation` | nein | 3D bei fit_all: `iso`, `front`, `top`, `bottom`, `left`, `right`, `rear` (Standard: `iso`) |
 | `display` | nein | z. B. `size: [1600, 1200]` für Auflösung (3D-Hintergrund ist immer weiß) |
 | `output` | nein | `filename`: Dateiname des Screenshots (Default: `{id}.png`) |
 | `output.threshold` | nein | View-spezifischer SSIM-Schwellenwert (überschreibt default) |
@@ -222,6 +226,7 @@ def test_mein_projekt(freecad_vis_session):
 |------|--------------|
 | `pixi run test` | Tests mit pytest ausführen; `-s` zeigt SSIM-Metriken |
 | `pixi run test-xvfb` | Wie `test`, aber in xvfb; Exit-Code 0/1 entspricht dem Testergebnis auch bei FreeCAD-Absturz beim Beenden |
+| `pixi run create-references` | Referenzbilder anlegen/aktualisieren (Tests in xvfb mit `VISUAL_TEST_REFERENCE_MODE=update`) |
 | `pixi run clean-artifacts` | Alle Dateien unter `test/**/artifacts/*` löschen |
 | `pixi run clean-references` | Alle Dateien unter `test/**/references/*` löschen |
 | `pixi run dev-install` | Paket im Entwicklungsmodus installieren (`pip install -e .`) |

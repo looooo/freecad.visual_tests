@@ -111,6 +111,8 @@ class ViewConfig:
     reference_path: Path
     diff_output_path: Path
     threshold: float  # minimum SSIM (0..1), e.g. 0.98
+    fit_all: bool = True  # if True (default), use orientation + fitAll for 3d; else use camera position/target
+    orientation: str = "iso"  # 3d with fit_all: iso, front, top, bottom, left, right, rear
     sketch_edit: bool = False  # if True, enter sketch edit mode before capture and exit after
     sketch_name: Optional[str] = None  # name of sketch object; if None, use first Sketcher::SketchObject
     techdraw_page: Optional[str] = None  # TechDraw page name; None = first DrawPage
@@ -268,25 +270,14 @@ class VisualTestSession:
             except Exception:
                 pass
 
-            # TechDraw: activate page, then capture (saveImage or MDI grab).
+            # TechDraw: export via TechDrawGui.exportPageAsSvg, then render SVG→PNG (no GUI tab needed).
             if view_config.type == "techdraw" or view_config.techdraw_page is not None:
-                helper.set_active_techdraw_page(view_config.techdraw_page)
-                try:
-                    helper.process_events_and_delay()
-                    view = FreeCADGui.ActiveDocument.ActiveView
-                    if view is not None and hasattr(view, "saveImage"):
-                        view.saveImage(str(output_path), width, height, "Current")
-                    else:
-                        view = helper.get_techdraw_page_view()
-                        if view is not None and hasattr(view, "saveImage"):
-                            view.saveImage(str(output_path), width, height, "Current")
-                        else:
-                            helper.grab_mdi_active_subwindow(output_path, width, height)
-                finally:
-                    helper.unset_techdraw_page()
+                helper.export_techdraw_page_to_png(
+                    view_config.techdraw_page, output_path, width, height
+                )
                 return
 
-            # 3D view: ensure View3DInventor is active, optional white background, fit view, save.
+            # 3D view: ensure View3DInventor is active; by default fit_all (viewAxonometric + fitAll), else use camera.
             if view_config.type == "3d":
                 self.set_active_3d_view()
                 view = FreeCADGui.ActiveDocument.ActiveView
@@ -294,12 +285,24 @@ class VisualTestSession:
                     view = self._get_3d_view()
                 if view is None or not hasattr(view, "saveImage"):
                     raise RuntimeError("No 3D view (Gui::View3DInventor) found for capture.")
+                helper.set_navi_cube_visible(view, False)
+                helper.process_events_and_delay(0.1)
                 if view_config.display.get("background") == "white":
                     helper.set_3d_view_background_white(view)
-                if hasattr(view, "viewAxonometric"):
-                    view.viewAxonometric()
-                if hasattr(view, "fitAll"):
-                    view.fitAll()
+                if view_config.fit_all:
+                    helper.set_3d_view_orientation(view, view_config.orientation)
+                    if hasattr(view, "fitAll"):
+                        view.fitAll()
+                else:
+                    cam = view_config.camera or {}
+                    if cam.get("position") and cam.get("target"):
+                        helper.apply_3d_camera(view, cam)
+                        helper.process_events_and_delay(0.2)
+                    else:
+                        if hasattr(view, "viewAxonometric"):
+                            view.viewAxonometric()
+                        if hasattr(view, "fitAll"):
+                            view.fitAll()
                 view.saveImage(str(output_path), width, height, "Current")
                 return
 
@@ -405,6 +408,8 @@ class VisualTestCase:
             sketch_edit = bool(view.get("sketch_edit", False))
             sketch_name = view.get("sketch_name")
             techdraw_page = view.get("techdraw_page")
+            fit_all = bool(view.get("fit_all", defaults.get("fit_all", True)))
+            orientation = str(view.get("orientation", defaults.get("orientation", "iso"))).strip() or "iso"
 
             reference_path = refs_dir / filename
             output_path = artifacts_dir / filename
@@ -420,6 +425,8 @@ class VisualTestCase:
                     reference_path=reference_path,
                     diff_output_path=diff_output_path,
                     threshold=threshold,
+                    fit_all=fit_all,
+                    orientation=orientation,
                     sketch_edit=sketch_edit,
                     sketch_name=sketch_name,
                     techdraw_page=techdraw_page,

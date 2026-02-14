@@ -6,17 +6,13 @@ default:
   image_dir: "references"
   image_format: "png"
   threshold: 0.98
+  fit_all: true
 
 views:
   - id: "object_3d"
     label: "3D object view"
     type: "3d"
-    camera:
-      position: [200, 200, 200]
-      target: [0, 0, 0]
-      up: [0, 0, 1]
-      fov: 35.0
-      projection: "perspective"
+    orientation: "iso"
     display:
       mode: "shaded"
       size: [1600, 1200]
@@ -27,7 +23,6 @@ views:
     label: "TechDraw drawing page"
     type: "techdraw"
     techdraw_page: null
-    camera: {}
     display:
       size: [1600, 1200]
     output:

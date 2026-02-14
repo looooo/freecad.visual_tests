@@ -6,18 +6,14 @@ default:
   image_dir: "references"
   image_format: "png"
   threshold: 0.98
+  fit_all: true
 
 views:
   - id: "sketch_edit"
     label: "Sketch in edit mode (constraints and geometry visible)"
     type: "3d"
     sketch_edit: true
-    camera:
-      position: [0, 0, 300]
-      target: [0, 0, 0]
-      up: [0, 1, 0]
-      fov: 1.0
-      projection: "orthographic"
+    orientation: "top"
     display:
       mode: "shaded"
       size: [1600, 1200]
