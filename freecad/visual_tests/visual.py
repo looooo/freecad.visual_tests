@@ -19,48 +19,35 @@ from .ssim import ComparisonResult, compare_images_ssim as _compare_images_ssim
 def _try_config(*keys: str) -> Optional[str]:
     """First FreeCAD.ConfigGet(key) that returns a non-empty value."""
     for key in keys:
-        try:
-            v = FreeCAD.ConfigGet(key)
-            if v:
-                return v
-        except Exception:
-            pass
+        v = FreeCAD.ConfigGet(key)
+        if v:
+            return v
     return None
 
 
 def _try_part_occ_version() -> Optional[str]:
-    """Try to get OCCT version via Part module (e.g. OpenCASCADE get version string)."""
-    try:
-        import Part  # type: ignore
-        if hasattr(Part, "getOCCVersion"):
-            return Part.getOCCVersion()
-        if hasattr(Part, "OCC_VERSION"):
-            return str(Part.OCC_VERSION)
-    except Exception:
-        pass
+    """Get OCCT version via Part module (e.g. OpenCASCADE get version string)."""
+    import Part  # type: ignore
+    if hasattr(Part, "getOCCVersion"):
+        return Part.getOCCVersion()
+    if hasattr(Part, "OCC_VERSION"):
+        return str(Part.OCC_VERSION)
     return None
 
 
 def _try_pivy_version() -> Optional[str]:
-    """Try to get Pivy (Python–Coin bindings) version."""
-    try:
-        import pivy  # type: ignore
-        return getattr(pivy, "__version__", None)
-    except Exception:
-        pass
-    return None
+    """Get Pivy (Python–Coin bindings) version."""
+    import pivy  # type: ignore
+    return getattr(pivy, "__version__", None)
 
 
 def _try_pivy_coin_version() -> Optional[str]:
-    """Try to get Coin (Coin3D) version via Pivy – SoDB.getVersion()."""
-    try:
-        from pivy import coin  # type: ignore
-        if hasattr(coin, "SoDB") and hasattr(coin.SoDB, "getVersion"):
-            v = coin.SoDB.getVersion()
-            if v is not None:
-                return str(v).strip() or None
-    except Exception:
-        pass
+    """Get Coin (Coin3D) version via Pivy – SoDB.getVersion()."""
+    from pivy import coin  # type: ignore
+    if hasattr(coin, "SoDB") and hasattr(coin.SoDB, "getVersion"):
+        v = coin.SoDB.getVersion()
+        if v is not None:
+            return str(v).strip() or None
     return None
 
 
@@ -75,49 +62,31 @@ class VisualTestSession:
         session = cls()
 
         # Ensure main window exists; in many environments this is a no-op
-        try:  # pragma: no cover - depends on FreeCAD GUI
-            FreeCADGui.showMainWindow()
-        except Exception:
-            pass
+        FreeCADGui.showMainWindow()
 
         # Disable FreeCAD's view animation features for deterministic screenshots.
-        try:  # pragma: no cover - preference API
-            view_prefs = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/View")
-            view_prefs.SetBool("UseAnimation", False)
-            view_prefs.SetBool("EnableAnimation", False)
-        except Exception:
-            pass
+        view_prefs = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/View")
+        view_prefs.SetBool("UseAnimation", False)
+        view_prefs.SetBool("EnableAnimation", False)
 
         # Use Ubuntu 22.04 default Qt font everywhere for consistent text rendering.
-        try:  # pragma: no cover - Qt font
-            from PySide6.QtGui import QFont
-            from PySide6.QtWidgets import QApplication
-            app = QApplication.instance()
-            if app is not None:
-                app.setFont(QFont("Ubuntu", 11))
-        except Exception:
-            pass
+        from PySide6.QtGui import QFont
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app is not None:
+            app.setFont(QFont("Ubuntu", 11))
 
         return session
 
     def shutdown(self) -> None:
         """Close all documents and process events so views are destroyed before process exit."""
-        try:
-            doc_names = list(FreeCAD.listDocuments().keys())
-            for name in doc_names:
-                try:
-                    FreeCAD.closeDocument(name)
-                except Exception:
-                    pass
-            try:
-                from PySide6 import QtWidgets
-                for _ in range(5):
-                    QtWidgets.QApplication.processEvents()
-                    time.sleep(0.05)
-            except Exception:
-                pass
-        except Exception:
-            pass
+        doc_names = list(FreeCAD.listDocuments().keys())
+        for name in doc_names:
+            FreeCAD.closeDocument(name)
+        from PySide6 import QtWidgets
+        for _ in range(5):
+            QtWidgets.QApplication.processEvents()
+            time.sleep(0.05)
 
     def get_env_snapshot(self) -> Dict[str, Any]:
         """Return a dict with FreeCAD version and key dependency versions for reference images."""
@@ -142,10 +111,7 @@ class VisualTestSession:
     def close_document(self, doc: Any) -> None:
         if doc is None:
             return
-        try:
-            FreeCAD.closeDocument(doc.Name)
-        except Exception:
-            pass
+        FreeCAD.closeDocument(doc.Name)
 
     def set_sketch_edit_mode(self, enter: bool, sketch_name: Optional[str] = None) -> None:
         helper.set_sketch_edit_mode(enter, sketch_name)
@@ -157,20 +123,14 @@ class VisualTestSession:
         helper.unset_techdraw_page()
 
     def set_active_3d_view(self) -> None:
-        try:
-            FreeCADGui.activateView("Gui::View3DInventor", True)
-        except Exception:
-            pass
+        FreeCADGui.activateView("Gui::View3DInventor", True)
 
     def _get_3d_view(self) -> Any:
-        try:
-            gdoc = FreeCADGui.ActiveDocument
-            if gdoc is None:
-                return None
-            views = list(gdoc.mdiViewsOfType("Gui::View3DInventor"))
-            return views[0] if views else None
-        except Exception:
+        gdoc = FreeCADGui.ActiveDocument
+        if gdoc is None:
             return None
+        views = list(gdoc.mdiViewsOfType("Gui::View3DInventor"))
+        return views[0] if views else None
 
     def execute_script(
         self, path: str, context: Optional[Dict[str, Any]] = None
@@ -193,11 +153,8 @@ class VisualTestSession:
             if doc_gui is None:
                 raise RuntimeError("No active FreeCAD GUI document for screenshot capture.")
             view = doc_gui.ActiveView
-            try:
-                if hasattr(view, "setAnimationEnabled"):
-                    view.setAnimationEnabled(False)  # type: ignore[attr-defined]
-            except Exception:
-                pass
+            if hasattr(view, "setAnimationEnabled"):
+                view.setAnimationEnabled(False)  # type: ignore[attr-defined]
 
             if view_config.type == "techdraw" or view_config.techdraw_page is not None:
                 helper.process_events_and_delay(0.3)
