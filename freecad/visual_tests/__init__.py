@@ -4,6 +4,7 @@ compare to references with SSIM, optional sketch/TechDraw handling.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
@@ -247,14 +248,26 @@ class VisualTestCase:
                 self.session.close_document(doc)
 
 
+def discover_projects(data_dir: Union[str, Path]) -> List[Path]:
+    """Return sorted list of directories under data_dir that contain metafile.yaml."""
+    data_path = Path(data_dir).resolve()
+    return sorted(
+        d for d in data_path.iterdir()
+        if d.is_dir() and (d / "metafile.yaml").exists()
+    )
+
+
 def run_metafile_test(
     session: "VisualTestSession",
     metafile_path: Union[str, Path],
     *,
-    reference_mode: ReferenceMode = "compare",
+    reference_mode: Optional[ReferenceMode] = None,
     default_threshold: Optional[float] = None,
 ) -> None:
-    """Open model from metafile, run views, compare with SSIM. Use from pytest with freecad_vis_session."""
+    """Open model from metafile, run views, compare with SSIM. Use from pytest with freecad_vis_session.
+    If reference_mode is None, uses env VISUAL_TEST_REFERENCE_MODE (default: create_missing)."""
+    if reference_mode is None:
+        reference_mode = os.environ.get("VISUAL_TEST_REFERENCE_MODE", "create_missing")
     case = VisualTestCase(session, metafile_path)
     case.run(
         reference_mode=reference_mode,
