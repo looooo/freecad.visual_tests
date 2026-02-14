@@ -20,5 +20,6 @@ test-xvfb = { cmd = "python scripts/run_visual_tests_xvfb.py", description = "Ru
 create-references-xvfb = { cmd = "python scripts/run_visual_tests_xvfb.py", env = { VISUAL_TEST_REFERENCE_MODE = "update" }, description = "Create or update reference images (run tests in xvfb with update mode)" }
 clean-artifacts = { cmd = "rm -f test/**/artifacts/*", description = "Remove artifact images" }
 clean-references = { cmd = "rm -f test/**/references/*", description = "Remove reference images" }
+clean = { cmd = "rm -f test/**/artifacts/* test/**/references/*", description = "Remove artifacts and references" }
 dev-install = { cmd = "python -m pip install -e .", description = "Editable install" }
 

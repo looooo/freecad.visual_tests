@@ -152,6 +152,16 @@ class VisualTestSession:
             # in future FreeCAD versions.
             pass
 
+        # Use Ubuntu 22.04 default Qt font everywhere for consistent text rendering (e.g. Sketcher constraints).
+        try:  # pragma: no cover - Qt font
+            from PySide6.QtGui import QFont
+            from PySide6.QtWidgets import QApplication
+            app = QApplication.instance()
+            if app is not None:
+                app.setFont(QFont("Ubuntu", 11))
+        except Exception:
+            pass
+
         return session
 
     def shutdown(self) -> None:

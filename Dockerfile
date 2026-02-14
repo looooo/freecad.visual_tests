@@ -1,8 +1,8 @@
-# Visual tests for FreeCAD – reproducible environment (long-term).
-# Base: Debian 13 (Trixie). For strict reproducibility, pin by digest:
-#   docker pull debian:trixie-slim && docker image inspect --format='{{index .RepoDigests 0}}' debian:trixie-slim
-#   then use FROM debian@sha256:... in place of the line below.
-FROM debian:trixie-slim
+# Visual tests for FreeCAD – reproducible environment (GH Actions compatible).
+# Base: Ubuntu 22.04 (Jammy). For strict reproducibility, pin by digest:
+#   docker pull ubuntu:22.04 && docker image inspect --format='{{index .RepoDigests 0}}' ubuntu:22.04
+#   then use FROM ubuntu@sha256:... in place of the line below.
+FROM ubuntu:22.04
 
 # Avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
