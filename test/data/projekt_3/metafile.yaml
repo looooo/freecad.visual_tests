@@ -14,6 +14,7 @@ views:
     type: "3d"
     sketch_edit: true
     orientation: "top"
+    compare_method: "feature"
     display:
       mode: "shaded"
       size: [1600, 1200]

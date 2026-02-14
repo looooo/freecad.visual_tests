@@ -44,3 +44,30 @@ def test_ssim_via_image_files():
         result = compare_images_ssim(path, path, threshold=0.98)
         assert result.passed
         assert result.mean_diff == pytest.approx(0.0, abs=1e-6)
+
+
+def test_feature_similarity_same_image():
+    """Feature similarity of same image (or path) should be 1.0 (or very high)."""
+    pytest.importorskip("cv2")
+    from freecad.visual_tests.similarity import feature_similarity
+
+    gray = (np.random.rand(120, 120) * 255).astype(np.uint8)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "img.png"
+        Image.fromarray(gray, mode="L").save(path)
+        sim = feature_similarity(path, path)
+    assert sim >= 0.99
+
+
+def test_feature_similarity_different_images():
+    """Feature similarity of unrelated images should be low."""
+    pytest.importorskip("cv2")
+    from freecad.visual_tests.similarity import feature_similarity
+
+    with tempfile.TemporaryDirectory() as tmp:
+        p1 = Path(tmp) / "a.png"
+        p2 = Path(tmp) / "b.png"
+        Image.fromarray((np.random.rand(100, 100) * 255).astype(np.uint8), mode="L").save(p1)
+        Image.fromarray((np.random.rand(100, 100) * 255).astype(np.uint8), mode="L").save(p2)
+        sim = feature_similarity(p1, p2)
+    assert sim < 0.5

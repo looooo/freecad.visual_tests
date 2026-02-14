@@ -13,6 +13,7 @@ Pillow = "*"
 numpy = "*"
 pyyaml = "*"
 freecad = "*"
+opencv = "*"
 
 [tasks]
 test = { cmd = "pytest -s", description = "Run visual tests (SSIM); -s prints metrics" }

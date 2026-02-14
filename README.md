@@ -37,6 +37,7 @@ freecad.visual_tests/
 ├── freecad/visual_tests/
 │   ├── __init__.py   # ViewConfig, VisualTestCase, run_metafile_test (no FreeCAD import)
 │   ├── ssim.py       # SSIM comparison (ComparisonResult, ssim_value, compare_images_ssim); no FreeCAD
+│   ├── similarity.py # Feature-based similarity (ORB, feature_similarity); no FreeCAD; requires opencv
 │   ├── visual.py     # VisualTestSession, FreeCAD-dependent capture/session
 │   └── helper.py     # Sketcher and TechDraw logic (edit mode, page activation, export)
 ├── scripts/
@@ -98,6 +99,7 @@ List of views. Each view has:
 | `sketch_edit` | no | `true` = put sketch in edit mode before screenshot (see projekt_3) |
 | `sketch_name` | no | Sketch object name; if empty, first `Sketcher::SketchObject` |
 | `techdraw_page` | no | TechDraw page name; `null` = first `TechDraw::DrawPage` |
+| `compare_method` | no | `ssim` (default, pixel-based) or `feature` (ORB, robust to small perspective/scale changes) |
 
 ### Example (3D views)
 
@@ -145,13 +147,21 @@ views:
       filename: "techdraw_page.png"
 ```
 
-## Image comparison (SSIM)
+## Image comparison
+
+### SSIM (default)
 
 - **SSIM** (Structural Similarity) is implemented in `freecad.visual_tests.ssim` (NumPy + PIL only; no FreeCAD). This allows running SSIM-related tests without a GUI (e.g. `pixi run selftest`).
 - A value of **1.0** = identical; **0.98** = very similar.
 - `threshold` in the metafile = **minimum SSIM**; the test passes when `SSIM >= threshold`.
 - Each run prints one line per view, e.g.  
   `[projekt_1] engine_iso: SSIM=0.9990 (threshold=0.98) passed`
+
+### Feature-based (ORB)
+
+- For views where the camera or perspective may vary slightly (e.g. different systems), set **`compare_method: "feature"`** in the view (or in `default`). This uses ORB keypoints + homography inliers and returns a similarity in **[0, 1]**.
+- **1.0** = same content (e.g. same scene with a slight perspective or scale difference). Implemented in `freecad.visual_tests.similarity.feature_similarity` (requires **opencv**). Lightweight (no deep learning); robust to small rotation, scale, and perspective changes.
+- Same `threshold` semantics: test passes when `similarity >= threshold` (e.g. `0.85`–`0.95` for feature).
 
 ## References and artifacts
 
@@ -262,6 +272,10 @@ def test_my_project(freecad_vis_session):
 ### SSIM module (no FreeCAD)
 
 - **freecad.visual_tests.ssim** – `ComparisonResult`, `ssim_value(ref_arr, cand_arr)`, `compare_images_ssim(ref_path, cand_path, threshold, diff_output_path=None)`. Use for tests or tooling that must not import FreeCAD.
+
+### Feature similarity (no FreeCAD, requires opencv)
+
+- **freecad.visual_tests.similarity.feature_similarity(ref_path, cand_path, max_size=800)** → float in [0, 1]. ORB-based; robust to small perspective/scale/rotation. Use when the same content may appear with slightly different viewpoint (e.g. cross-system comparison).
 
 ### Advanced use / helpers
 

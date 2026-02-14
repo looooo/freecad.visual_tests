@@ -44,12 +44,13 @@ class ViewConfig:
     output_path: Path
     reference_path: Path
     diff_output_path: Path
-    threshold: float  # minimum SSIM (0..1), e.g. 0.98
+    threshold: float  # minimum similarity (0..1), e.g. 0.98 for SSIM
     fit_all: bool = True
     orientation: str = "iso"  # 3d with fit_all: iso, front, top, bottom, left, right, rear
     sketch_edit: bool = False
     sketch_name: Optional[str] = None
     techdraw_page: Optional[str] = None
+    compare_method: str = "ssim"  # "ssim" (pixel) or "feature" (ORB, robust to perspective)
 
 
 # -----------------------------------------------------------------------------
@@ -97,6 +98,9 @@ class VisualTestCase:
             techdraw_page = view.get("techdraw_page")
             fit_all = bool(view.get("fit_all", defaults.get("fit_all", True)))
             orientation = str(view.get("orientation", defaults.get("orientation", "iso"))).strip() or "iso"
+            compare_method = str(view.get("compare_method", defaults.get("compare_method", "ssim"))).strip().lower()
+            if compare_method not in ("ssim", "feature"):
+                compare_method = "ssim"
 
             reference_path = refs_dir / filename
             output_path = artifacts_dir / filename
@@ -117,6 +121,7 @@ class VisualTestCase:
                     sketch_edit=sketch_edit,
                     sketch_name=sketch_name,
                     techdraw_page=techdraw_page,
+                    compare_method=compare_method,
                 )
             )
         return result
@@ -168,21 +173,34 @@ class VisualTestCase:
                     f"{view.reference_path}"
                 )
 
-            result = self.session.compare_images_ssim(
-                view.reference_path,
-                view.output_path,
-                view.threshold,
-            )
-            ssim = 1.0 - result.mean_diff
-            status = "passed" if result.passed else "FAILED"
-            print(f"  [{self.base_dir.name}] {view.id}: SSIM={ssim:.4f} (threshold={view.threshold}) {status}", flush=True)
-            if not result.passed:
-                msg = (
-                    f"Visual regression detected for view '{view.id}'. "
-                    f"{result.explain()} "
-                    f"(reference={view.reference_path}, candidate={view.output_path})"
+            if view.compare_method == "feature":
+                from .similarity import feature_similarity
+                similarity = feature_similarity(view.reference_path, view.output_path)
+                passed = similarity >= view.threshold
+                status = "passed" if passed else "FAILED"
+                print(f"  [{self.base_dir.name}] {view.id}: feature={similarity:.4f} (threshold={view.threshold}) {status}", flush=True)
+                if not passed:
+                    pytest.fail(
+                        f"Visual regression detected for view '{view.id}'. "
+                        f"feature_similarity={similarity:.4f} (threshold={view.threshold}) "
+                        f"(reference={view.reference_path}, candidate={view.output_path})"
+                    )
+            else:
+                result = self.session.compare_images_ssim(
+                    view.reference_path,
+                    view.output_path,
+                    view.threshold,
                 )
-                pytest.fail(msg)
+                ssim = 1.0 - result.mean_diff
+                status = "passed" if result.passed else "FAILED"
+                print(f"  [{self.base_dir.name}] {view.id}: SSIM={ssim:.4f} (threshold={view.threshold}) {status}", flush=True)
+                if not result.passed:
+                    msg = (
+                        f"Visual regression detected for view '{view.id}'. "
+                        f"{result.explain()} "
+                        f"(reference={view.reference_path}, candidate={view.output_path})"
+                    )
+                    pytest.fail(msg)
 
     def run(
         self,
