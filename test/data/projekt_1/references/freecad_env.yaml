@@ -11,4 +11,4 @@ freecad_version_full:
 - 2fcc5317fe3aee96ca73475986a577719fc78e20
 occt_version: 7.8.1
 pivy_version: 0.6.9
-python_version: 3.12.12
+python_version: 3.13.12
