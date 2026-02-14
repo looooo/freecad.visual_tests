@@ -272,6 +272,7 @@ class VisualTestSession:
 
             # TechDraw: export via TechDrawGui.exportPageAsSvg, then render SVG→PNG (no GUI tab needed).
             if view_config.type == "techdraw" or view_config.techdraw_page is not None:
+                helper.process_events_and_delay(0.3)  # let scene finish rendering
                 helper.export_techdraw_page_to_png(
                     view_config.techdraw_page, output_path, width, height
                 )
@@ -303,10 +304,12 @@ class VisualTestSession:
                             view.viewAxonometric()
                         if hasattr(view, "fitAll"):
                             view.fitAll()
+                helper.process_events_and_delay(0.3)  # let scene finish rendering
                 view.saveImage(str(output_path), width, height, "Current")
                 return
 
             if hasattr(view, "saveImage"):
+                helper.process_events_and_delay(0.3)  # let scene finish rendering
                 view.saveImage(str(output_path), width, height, "Current")
             else:
                 raise RuntimeError(

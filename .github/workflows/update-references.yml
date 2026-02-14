@@ -23,7 +23,7 @@ jobs:
         run: pixi install
 
       - name: Generate reference images (update)
-        run: VISUAL_TEST_REFERENCE_MODE=update pixi run test-xvfb
+        run: pixi run create-references-xvfb
 
       - name: Commit and push reference images
         run: |
