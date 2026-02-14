@@ -24,26 +24,11 @@ Run tests in a virtual display when no desktop is available (e.g. on CI):
 pixi run test-xvfb
 ```
 
-### Docker (reproducible environment)
+This uses `scripts/run_visual_tests_xvfb.py` (wraps pytest with `xvfb-run`). The script requires **xvfb** and **xauth** to be installed (e.g. `apt-get install xvfb xauth`).
 
-You can run the tests in a Docker container with a fixed environment (Debian Bookworm, pixi, FreeCAD from conda-forge) for long-term reproducibility.
+**Optional: Docker for reproducibility**
 
-```bash
-# Build image (uses pixi.lock if present)
-docker build -t freecad-visual-tests .
-
-# Run tests (default entrypoint = test-xvfb)
-docker run --rm freecad-visual-tests
-
-# Generate reference images (update mode)
-docker run --rm freecad-visual-tests run create-references
-```
-
-**Long-term reproducibility (e.g. 10 years):**
-
-- **Keep `pixi.lock` in the repo:** `pixi install --locked` in the Dockerfile uses the exact package versions from the lock file.
-- **Pin the base image:** For strict reproducibility, pin the Debian image by digest (see comment in the Dockerfile): run `docker pull debian:bookworm-slim`, then use the digest from `docker image inspect` as `FROM debian@sha256:...` in the Dockerfile.
-- **Archive the built image:** Build the image once and save it to a registry or as a tar file (`docker save`) so you can re-run without rebuilding.
+For a fixed environment (e.g. same OS, pixi, FreeCAD from conda-forge), use a Docker image that installs pixi, xvfb, xauth, runs `pixi install --locked`, and uses `pixi run test-xvfb` as the default command. Keep `pixi.lock` in the repo so `pixi install --locked` reproduces exact versions. Pin the base image by digest for long-term reproducibility.
 
 ## Project structure
 
@@ -51,10 +36,14 @@ docker run --rm freecad-visual-tests run create-references
 freecad.visual_tests/
 ├── freecad/visual_tests/
 │   ├── __init__.py   # ViewConfig, VisualTestCase, run_metafile_test (no FreeCAD import)
+│   ├── ssim.py       # SSIM comparison (ComparisonResult, ssim_value, compare_images_ssim); no FreeCAD
 │   ├── visual.py     # VisualTestSession, FreeCAD-dependent capture/session
 │   └── helper.py     # Sketcher and TechDraw logic (edit mode, page activation, export)
+├── scripts/
+│   └── run_visual_tests_xvfb.py   # Runs pytest under xvfb; used by test-xvfb / create-references-xvfb
 ├── test/
-│   ├── conftest.py   # Session fixture freecad_vis_session
+│   ├── conftest.py   # Session fixture freecad_vis_session (imports VisualTestSession from .visual)
+│   ├── test_framework_selftest.py # SSIM unit tests, no FreeCAD (pixi run selftest)
 │   └── data/
 │       └── projekt_*/           # One example per project
 │           ├── metafile.yaml   # Model, views, thresholds
@@ -158,7 +147,7 @@ views:
 
 ## Image comparison (SSIM)
 
-- Only **SSIM** (Structural Similarity) is used (NumPy only, no other image libraries).
+- **SSIM** (Structural Similarity) is implemented in `freecad.visual_tests.ssim` (NumPy + PIL only; no FreeCAD). This allows running SSIM-related tests without a GUI (e.g. `pixi run selftest`).
 - A value of **1.0** = identical; **0.98** = very similar.
 - `threshold` in the metafile = **minimum SSIM**; the test passes when `SSIM >= threshold`.
 - Each run prints one line per view, e.g.  
@@ -177,9 +166,9 @@ views:
 
 ## Creating or updating references
 
-**References via GitHub Action (CI):** Run the **Update reference images** workflow manually under Actions (`workflow_dispatch`). It renders all views in the CI environment, commits the new reference images and `freecad_env.yaml`, and pushes to the current branch so references match the test environment on GitHub.
+**References via GitHub Action (CI):** Run the **Update reference images** workflow manually under Actions (`workflow_dispatch`). It renders all views in the CI environment, commits the new reference images and `freecad_env.yaml`, and pushes to the current branch.
 
-**Locally**, a single parameter **reference_mode** controls behaviour:
+**Locally**, either run `pixi run create-references-xvfb` (writes all references), or pass **reference_mode** in code:
 
 | reference_mode   | Meaning |
 |-----------------|---------|
@@ -236,21 +225,23 @@ def test_my_project(freecad_vis_session):
 
 ## Known limitations
 
-- **Platform:** Tested on Linux (pixi/conda). Without a visible desktop (e.g. CI), a virtual display is required (`pixi run test-xvfb`).
+- **Platform:** Tested on Linux (pixi/conda). Without a visible desktop (e.g. CI), a virtual display is required (`pixi run test-xvfb`; needs xvfb and xauth installed).
 - **One GUI session per run:** All tests share one FreeCAD GUI session (fixture); documents are opened and closed in sequence.
 - **Order:** Test order can matter with shared documents or global FreeCAD settings.
 - **One model per metafile:** Each `metafile.yaml` references exactly one `.FCStd` file; multiple models per metafile are not supported.
-- **Shutdown:** On exit, `session.shutdown()` closes all open documents and processes Qt events to avoid crashes at process end (e.g. in `View3DInventor` destructor). If a segfault still occurs afterwards, the test result is already fixed.
+- **Shutdown:** On exit, `session.shutdown()` closes all open documents and processes Qt events. If FreeCAD segfaults after that, the wrapper script still returns the correct test exit code (from `.pytest_exitstatus`).
 
 ## Pixi tasks
 
 | Task | Description |
 |------|-------------|
-| `pixi run test` | Run tests with pytest; `-s` shows SSIM metrics |
-| `pixi run test-xvfb` | Same as `test` but in xvfb; exit code 0/1 reflects test result even if FreeCAD crashes on shutdown |
-| `pixi run create-references` | Create or update reference images (runs tests in xvfb with `VISUAL_TEST_REFERENCE_MODE=update`) |
+| `pixi run test` | Run visual tests with pytest; `-s` shows SSIM metrics (requires display or xvfb) |
+| `pixi run test-xvfb` | Run tests under xvfb (for CI/headless); exit code 0/1 reflects test result even if FreeCAD crashes on shutdown |
+| `pixi run selftest` | Run SSIM/framework unit tests only (no FreeCAD GUI; fast) |
+| `pixi run create-references-xvfb` | Create or update reference images (xvfb + `VISUAL_TEST_REFERENCE_MODE=update`) |
 | `pixi run clean-artifacts` | Remove all files under `test/**/artifacts/*` |
 | `pixi run clean-references` | Remove all files under `test/**/references/*` |
+| `pixi run clean` | Remove both artifacts and references |
 | `pixi run dev-install` | Install package in development mode (`pip install -e .`) |
 
 ## API (overview)
@@ -268,10 +259,14 @@ def test_my_project(freecad_vis_session):
 - **VisualTestSession** (from `freecad.visual_tests.visual`)  
   `start()`, `shutdown()`, `open_document`, `close_document`, `get_env_snapshot`. Provided in pytest via the **freecad_vis_session** fixture.
 
+### SSIM module (no FreeCAD)
+
+- **freecad.visual_tests.ssim** – `ComparisonResult`, `ssim_value(ref_arr, cand_arr)`, `compare_images_ssim(ref_path, cand_path, threshold, diff_output_path=None)`. Use for tests or tooling that must not import FreeCAD.
+
 ### Advanced use / helpers
 
 - **helper** (freecad.visual_tests.helper) – Sketcher and TechDraw control if you implement the flow yourself:  
-  `set_sketch_edit_mode(enter, sketch_name=None)`, `set_active_techdraw_page(page_name=None)`, `unset_techdraw_page()`, `process_events_and_delay()`, `get_techdraw_page_view()`, `grab_mdi_active_subwindow(output_path, width, height)`.  
+  `set_sketch_edit_mode(enter, sketch_name=None)`, `set_active_techdraw_page(page_name=None)`, `unset_techdraw_page()`, `process_events_and_delay()`, and others.  
   Via the session: `session.set_sketch_edit_mode`, `session.set_active_techdraw_page`, `session.unset_techdraw_page`.
 
 ## License / author
