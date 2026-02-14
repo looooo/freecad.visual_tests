@@ -2,8 +2,9 @@
 __pycache__/
 *.py[cod]
 
-# Pixi / environment artifacts
+# Pixi / environment artifacts (pixi.lock committed for CI cache key)
 *.lock
+!pixi.lock
 
 # Test run artifacts (do NOT commit these)
 test/**/artifacts/
