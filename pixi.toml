@@ -8,6 +8,7 @@ platforms = ["linux-64"]
 
 [dependencies]
 python = "*"
+pip = "*"
 pytest = "*"
 Pillow = "*"
 numpy = "*"
@@ -24,4 +25,6 @@ clean-artifacts = { cmd = "rm -f test/**/artifacts/*", description = "Remove art
 clean-references = { cmd = "rm -f test/**/references/*", description = "Remove reference images" }
 clean = { cmd = "rm -f test/**/artifacts/* test/**/references/*", description = "Remove artifacts and references" }
 dev-install = { cmd = "python -m pip install -e .", description = "Editable install" }
+build-pypi = { cmd = "python -m pip install build -q && python -m build", description = "Build sdist and wheel for PyPI (output in dist/)" }
+upload-pypi = { cmd = "python -m pip install twine -q && twine upload dist/*", description = "Upload dist/* to PyPI (uses TWINE_USERNAME/TWINE_PASSWORD or .pypirc)" }
 

@@ -2,6 +2,13 @@
 __pycache__/
 *.py[cod]
 
+# Build / PyPI (do not commit)
+dist/
+*.whl
+*.egg-info/
+*.egg
+build/
+
 # Pixi / environment artifacts (pixi.lock committed for CI cache key)
 *.lock
 !pixi.lock

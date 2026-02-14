@@ -4,6 +4,8 @@ compare to references with SSIM, optional sketch/TechDraw handling.
 """
 from __future__ import annotations
 
+__version__ = "0.1.0"
+
 import os
 from dataclasses import dataclass
 from pathlib import Path
