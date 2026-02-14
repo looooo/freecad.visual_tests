@@ -21,7 +21,6 @@ views:
       projection: "perspective"
     display:
       mode: "shaded"
-      background: "gradient"
       size: [1600, 1200]
     output:
       filename: "asm_iso.png"
@@ -37,7 +36,6 @@ views:
       projection: "orthographic"
     display:
       mode: "shaded"
-      background: "gradient"
       size: [1600, 1200]
     output:
       filename: "asm_front.png"

@@ -39,6 +39,25 @@ def set_sketch_edit_mode(enter: bool, sketch_name: Optional[str] = None) -> None
 
 
 # -----------------------------------------------------------------------------
+# 3D view background
+# -----------------------------------------------------------------------------
+
+def set_3d_view_background_white(view: Any) -> None:
+    """Set the 3D viewer background to solid white (for reproducible screenshots)."""
+    try:
+        viewer = view.getViewer() if hasattr(view, "getViewer") else None
+        if viewer is None:
+            return
+        # View3DInventorViewer: setBackgroundColorValue(r,g,b) or similar
+        if hasattr(viewer, "setBackgroundColorValue"):
+            viewer.setBackgroundColorValue(1.0, 1.0, 1.0)
+        elif hasattr(viewer, "setBackgroundColor"):
+            viewer.setBackgroundColor(1.0, 1.0, 1.0)
+    except Exception:
+        pass
+
+
+# -----------------------------------------------------------------------------
 # TechDraw
 # -----------------------------------------------------------------------------
 

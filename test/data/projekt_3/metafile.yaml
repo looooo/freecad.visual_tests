@@ -20,7 +20,6 @@ views:
       projection: "orthographic"
     display:
       mode: "shaded"
-      background: "gradient"
       size: [1600, 1200]
     output:
       filename: "sketch_edit.png"

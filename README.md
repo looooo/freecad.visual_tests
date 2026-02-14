@@ -77,7 +77,7 @@ Liste von Ansichten. Jede View hat:
 | `label` | nein | Lesbare Beschreibung |
 | `type` | nein | `3d` (Standard) oder `techdraw` |
 | `camera` | nein | Kamera-Parameter (position, target, up, fov, projection) – für 3D derzeit nur grob genutzt |
-| `display` | nein | z. B. `size: [1600, 1200]` für Auflösung |
+| `display` | nein | z. B. `size: [1600, 1200]` für Auflösung (3D-Hintergrund ist immer weiß) |
 | `output` | nein | `filename`: Dateiname des Screenshots (Default: `{id}.png`) |
 | `output.threshold` | nein | View-spezifischer SSIM-Schwellenwert (überschreibt default) |
 | `sketch_edit` | nein | `true` = Sketch vor dem Screenshot in den Edit-Modus versetzen (wird vom Test gesteuert, siehe projekt_3) |

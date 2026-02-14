@@ -19,7 +19,6 @@ views:
       projection: "perspective"
     display:
       mode: "shaded"
-      background: "gradient"
       size: [1600, 1200]
     output:
       filename: "object_3d.png"

@@ -19,7 +19,6 @@ views:
       projection: "perspective"
     display:
       mode: "shaded"
-      background: "gradient"
       size: [1600, 1200]
     output:
       filename: "part_iso.png"
@@ -35,7 +34,6 @@ views:
       projection: "orthographic"
     display:
       mode: "shaded"
-      background: "gradient"
       size: [1600, 1200]
     output:
       filename: "part_side.png"
@@ -51,7 +49,6 @@ views:
       projection: "orthographic"
     display:
       mode: "shaded"
-      background: "gradient"
       size: [1600, 1200]
     output:
       filename: "part_top.png"

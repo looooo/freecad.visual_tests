@@ -269,7 +269,7 @@ class VisualTestSession:
                     helper.unset_techdraw_page()
                 return
 
-            # 3D view: ensure View3DInventor is active, fit view, save.
+            # 3D view: ensure View3DInventor is active, optional white background, fit view, save.
             if view_config.type == "3d":
                 self.set_active_3d_view()
                 view = FreeCADGui.ActiveDocument.ActiveView
@@ -277,6 +277,8 @@ class VisualTestSession:
                     view = self._get_3d_view()
                 if view is None or not hasattr(view, "saveImage"):
                     raise RuntimeError("No 3D view (Gui::View3DInventor) found for capture.")
+                if view_config.display.get("background") == "white":
+                    helper.set_3d_view_background_white(view)
                 if hasattr(view, "viewAxonometric"):
                     view.viewAxonometric()
                 if hasattr(view, "fitAll"):
@@ -377,7 +379,8 @@ class VisualTestCase:
         for view in cfg.get("views", []):
             vid = view["id"]
             camera = view.get("camera", {}) or {}
-            display = view.get("display", {}) or {}
+            display = dict(view.get("display", {}) or {})
+            display.setdefault("background", defaults.get("background", "white"))
             output_cfg = view.get("output", {}) or {}
 
             filename = output_cfg.get("filename") or f"{vid}.png"
