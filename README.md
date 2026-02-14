@@ -212,13 +212,14 @@ def test_mein_projekt(freecad_vis_session):
 - **Eine GUI-Session pro Lauf:** Alle Tests teilen sich eine FreeCAD-GUI-Session (Fixture); Dokumente werden nacheinander geöffnet und geschlossen.
 - **Reihenfolge:** Die Reihenfolge der Tests kann bei geteilten Dokumenten oder globalen FreeCAD-Einstellungen relevant sein.
 - **Ein Modell pro Metafile:** Jede `metafile.yaml` referenziert genau eine `.FCStd`-Datei; Erweiterung auf mehrere Modelle ist nicht vorgesehen.
+- **Shutdown:** Beim Beenden schließt `session.shutdown()` alle geöffneten Dokumente und verarbeitet Qt-Events, um einen Absturz beim Prozessende (z. B. in `View3DInventor`-Destruktor) zu vermeiden. Tritt danach trotzdem ein Segfault auf, ist das Testergebnis bereits festgelegt.
 
 ## Pixi-Tasks
 
 | Task | Beschreibung |
 |------|--------------|
 | `pixi run test` | Tests mit pytest ausführen; `-s` zeigt SSIM-Metriken |
-| `pixi run test-xvfb` | Wie `test`, aber in virtueller Anzeige (xvfb) |
+| `pixi run test-xvfb` | Wie `test`, aber in xvfb; Exit-Code 0/1 entspricht dem Testergebnis auch bei FreeCAD-Absturz beim Beenden |
 | `pixi run clean-artifacts` | Alle Dateien unter `test/**/artifacts/*` löschen |
 | `pixi run clean-references` | Alle Dateien unter `test/**/references/*` löschen |
 | `pixi run dev-install` | Paket im Entwicklungsmodus installieren (`pip install -e .`) |

@@ -16,7 +16,7 @@ freecad = "*"
 
 [tasks]
 test = { cmd = "pytest -s", description = "Run visual tests (SSIM); -s prints metrics" }
-test-xvfb = { cmd = "xvfb-run -s \"-screen 0 1920x1080x24\" pytest -s", description = "Run tests in virtual display" }
+test-xvfb = { cmd = "python scripts/run_visual_tests_xvfb.py", description = "Run tests in xvfb; exit 0/1 from test result even if FreeCAD crashes on shutdown" }
 clean-artifacts = { cmd = "rm -f test/**/artifacts/*", description = "Remove artifact images" }
 clean-references = { cmd = "rm -f test/**/references/*", description = "Remove reference images" }
 dev-install = { cmd = "python -m pip install -e .", description = "Editable install" }

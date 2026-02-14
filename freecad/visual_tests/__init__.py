@@ -5,6 +5,7 @@ compare to references with SSIM, optional sketch/TechDraw handling.
 from __future__ import annotations
 
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -152,8 +153,24 @@ class VisualTestSession:
         return session
 
     def shutdown(self) -> None:
-        # Do not close FreeCAD automatically; often managed externally.
-        pass
+        """Close all documents and process events so views are destroyed before process exit (reduces shutdown crash risk)."""
+        try:
+            doc_names = list(FreeCAD.listDocuments().keys())
+            for name in doc_names:
+                try:
+                    FreeCAD.closeDocument(name)
+                except Exception:
+                    pass
+            # Let Qt/FreeCAD process pending events so view destructors run while the app is still valid.
+            try:
+                from PySide6 import QtWidgets
+                for _ in range(5):
+                    QtWidgets.QApplication.processEvents()
+                    time.sleep(0.05)
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def get_env_snapshot(self) -> Dict[str, Any]:
         """

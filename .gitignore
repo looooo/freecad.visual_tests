@@ -7,6 +7,7 @@ __pycache__/
 
 # Test run artifacts (do NOT commit these)
 test/**/artifacts/
+.pytest_exitstatus
 
 # Allow reference images to be committed
 !test/**/references/
