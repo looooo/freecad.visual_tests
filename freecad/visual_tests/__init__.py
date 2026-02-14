@@ -175,10 +175,17 @@ class VisualTestCase:
 
             if view.compare_method == "feature":
                 from .similarity import feature_similarity
-                similarity = feature_similarity(view.reference_path, view.output_path)
+                similarity, details = feature_similarity(
+                    view.reference_path, view.output_path, return_details=True
+                )
                 passed = similarity >= view.threshold
                 status = "passed" if passed else "FAILED"
-                print(f"  [{self.base_dir.name}] {view.id}: feature={similarity:.4f} (threshold={view.threshold}) {status}", flush=True)
+                d = details
+                print(
+                    f"  [{self.base_dir.name}] {view.id}: feature={similarity:.4f} (threshold={view.threshold}) "
+                    f"kp_ref={d['n_kp_ref']} kp_cand={d['n_kp_cand']} matches={d['n_matches']} inliers={d['n_inliers']} inlier_ratio={d['inlier_ratio']} {status}",
+                    flush=True,
+                )
                 if not passed:
                     pytest.fail(
                         f"Visual regression detected for view '{view.id}'. "
